@@ -260,7 +260,7 @@ func (clnt *ProxyClient) returnGrpcConnToPool(conn *grpc.ClientConn) {
 func (clnt *ProxyClient) createGrpcConn(noInterceptor bool) (*grpc.ClientConn, Error) {
 	// make a new connection
 	// Implement TLS and auth
-	dialOptions := []grpc.DialOption{}
+	dialOptions := []grpc.DialOption{grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(MaxBufferSize)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(MaxBufferSize))}
 	if clnt.clientPolicy.TlsConfig != nil {
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(credentials.NewTLS(clnt.clientPolicy.TlsConfig)))
 	} else {
