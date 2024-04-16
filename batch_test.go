@@ -223,8 +223,26 @@ var _ = gg.Describe("Aerospike", func() {
 					op2 := as.NewBatchDelete(bdPolicy, key1)
 					op3 := as.NewBatchRead(nil, key1, []string{"bin2"})
 
-					brecs := []as.BatchRecordIfc{op1, op2, op3}
+					brecs := []as.BatchRecordIfc{op1, op3}
 					err := client.BatchOperate(bpolicy, brecs)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
+					gm.Expect(op1.BatchRec().ResultCode).To(gm.Equal(types.OK))
+					gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin1": nil, "bin2": nil}))
+					gm.Expect(op1.BatchRec().InDoubt).To(gm.BeFalse())
+
+					// There is no guarantee for the order of execution for different commands
+					gm.Expect(op3.BatchRec().Err).ToNot(gm.HaveOccurred())
+					gm.Expect(op3.BatchRec().Record).ToNot(gm.BeNil())
+					gm.Expect(op3.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin2": "b"}))
+
+					exists, err := client.Exists(nil, key1)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+					gm.Expect(exists).To(gm.BeTrue())
+
+					brecs = []as.BatchRecordIfc{op1, op2}
+					err = client.BatchOperate(bpolicy, brecs)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 
 					gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
@@ -237,13 +255,7 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(op2.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{}))
 					gm.Expect(op2.BatchRec().InDoubt).To(gm.BeFalse())
 
-					// There is guarantee for the order of execution for different commands
-					// gm.Expect(op3.BatchRec().Err).To(gm.HaveOccurred())
-					// gm.Expect(op3.BatchRec().ResultCode).To(gm.Equal(types.KEY_NOT_FOUND_ERROR))
-					// gm.Expect(op3.BatchRec().Record).To(gm.BeNil())
-					// gm.Expect(op3.BatchRec().InDoubt).To(gm.BeFalse())
-
-					exists, err := client.Exists(nil, key1)
+					exists, err = client.Exists(nil, key1)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 					gm.Expect(exists).To(gm.BeFalse())
 				}
