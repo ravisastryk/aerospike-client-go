@@ -701,32 +701,32 @@ func (cmd *baseCommand) setBatchOperateIfc(policy *BatchPolicy, records []BatchR
 			case _BRT_BATCH_WRITE:
 				bw := record.(*BatchWrite)
 
-				if bw.policy != nil {
-					attr.setBatchWrite(bw.policy)
+				if bw.Policy != nil {
+					attr.setBatchWrite(bw.Policy)
 				} else {
 					attr.setWrite(&policy.BasePolicy)
 				}
-				attr.adjustWrite(bw.ops)
-				cmd.writeBatchOperations(key, bw.ops, attr, attr.filterExp)
+				attr.adjustWrite(bw.Ops)
+				cmd.writeBatchOperations(key, bw.Ops, attr, attr.filterExp)
 
 			case _BRT_BATCH_UDF:
 				bu := record.(*BatchUDF)
 
-				if bu.policy != nil {
-					attr.setBatchUDF(bu.policy)
+				if bu.Policy != nil {
+					attr.setBatchUDF(bu.Policy)
 				} else {
 					attr.setUDF(&policy.BasePolicy)
 				}
 				cmd.writeBatchWrite(key, attr, attr.filterExp, 3, 0)
-				cmd.writeFieldString(bu.packageName, UDF_PACKAGE_NAME)
-				cmd.writeFieldString(bu.functionName, UDF_FUNCTION)
+				cmd.writeFieldString(bu.PackageName, UDF_PACKAGE_NAME)
+				cmd.writeFieldString(bu.FunctionName, UDF_FUNCTION)
 				cmd.writeFieldBytes(bu.argBytes, UDF_ARGLIST)
 
 			case _BRT_BATCH_DELETE:
 				bd := record.(*BatchDelete)
 
-				if bd.policy != nil {
-					attr.setBatchDelete(bd.policy)
+				if bd.Policy != nil {
+					attr.setBatchDelete(bd.Policy)
 				} else {
 					attr.setDelete(&policy.BasePolicy)
 				}
