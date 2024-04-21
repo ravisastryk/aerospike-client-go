@@ -35,7 +35,7 @@ type ExecuteTask struct {
 	clnt *ProxyClient
 
 	// The following map keeps an account of what nodes were ever observed with the job registered on them.
-	// If the job was ever observed, the task will return true for it is not found anymore (purged from task queue after completetion)
+	// If the job was ever observed, the task will return true for it is not found anymore (purged from task queue after completion)
 	observed map[string]struct{}
 }
 
@@ -107,7 +107,7 @@ func (etsk *ExecuteTask) IsDone() (bool, Error) {
 			// it means that it is completed.
 			if !node.SupportsPartitionQuery() {
 				// Task not found. On server prior to v6, this could mean task was already completed or not started yet.
-				// If the job was not observed before, its completetion is in doubt.
+				// If the job was not observed before, its completion is in doubt.
 				// Otherwise it means it was completed.
 				if _, existed := etsk.observed[node.GetName()]; !existed && etsk.retries.Get() < 20 {
 					// If the job was not found in some nodes, it may mean that the job was not started yet.
