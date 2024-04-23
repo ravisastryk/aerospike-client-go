@@ -416,7 +416,7 @@ var _ = gg.Describe("Aerospike", func() {
 					InterfacePP: &iface,
 
 					ByteArray:      []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
-					ArrByteArray:   [][]byte{[]byte{1, 2, 3}, []byte{4, 5, 6}, []byte{7, 8, 9}},
+					ArrByteArray:   [][]byte{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
 					Array:          [3]interface{}{1, "string", nil},
 					SliceString:    []string{"string1", "string2", "string3"},
 					SliceFloat64:   []float64{1.1, 2.2, 3.3, 4.4},
@@ -566,7 +566,7 @@ var _ = gg.Describe("Aerospike", func() {
 					InterfacePP: &iface,
 
 					ByteArray:      []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
-					ArrByteArray:   [][]byte{[]byte{1, 2, 3}, []byte{4, 5, 6}, []byte{7, 8, 9}},
+					ArrByteArray:   [][]byte{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
 					Array:          [3]interface{}{1, "string", nil},
 					SliceString:    []string{"string1", "string2", "string3"},
 					SliceFloat64:   []float64{1.1, 2.2, 3.3, 4.4},

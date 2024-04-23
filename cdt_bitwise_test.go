@@ -561,14 +561,14 @@ var _ = gg.Describe("CDT Bitwise Test", func() {
 			gm.Expect(record).NotTo(gm.BeNil())
 
 			expected := [][]byte{
-				[]byte{0x80},
-				[]byte{0x80},
-				[]byte{0x80},
-				[]byte{0xC1},
+				{0x80},
+				{0x80},
+				{0x80},
+				{0xC1},
 
-				[]byte{0xAA, 0xAA},
-				[]byte{0x55, 0x54},
-				[]byte{0x55, 0x54},
+				{0xAA, 0xAA},
+				{0x55, 0x54},
+				{0x55, 0x54},
 			}
 
 			// assertRecordFound(key, record)

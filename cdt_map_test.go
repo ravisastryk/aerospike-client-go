@@ -178,7 +178,7 @@ var _ = gg.Describe("CDT Map Test", func() {
 
 			rec, err = client.Get(nil, key)
 			gm.Expect(err).ToNot(gm.HaveOccurred())
-			gm.Expect(rec.Bins).To(gm.Equal(as.BinMap{"bin": []as.MapPair{as.MapPair{Key: "mk1", Value: []interface{}{"v1.0", "v1.1"}}, as.MapPair{Key: "mk2", Value: []interface{}{"v2.0", "v2.1"}}}}))
+			gm.Expect(rec.Bins).To(gm.Equal(as.BinMap{"bin": []as.MapPair{{Key: "mk1", Value: []interface{}{"v1.0", "v1.1"}}, {Key: "mk2", Value: []interface{}{"v2.0", "v2.1"}}}}))
 		})
 
 		gg.It("should create a valid CDT Map using MapPutOp", func() {
