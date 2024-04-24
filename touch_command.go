@@ -141,7 +141,6 @@ func (cmd *touchCommand) Execute() Error {
 }
 
 func (cmd *touchCommand) ExecuteGRPC(clnt *ProxyClient) Error {
-	cmd.dataBuffer = bufPool.Get().([]byte)
 	defer cmd.grpcPutBufferBack()
 
 	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())

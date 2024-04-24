@@ -24,6 +24,7 @@ import (
 
 	"github.com/aerospike/aerospike-client-go/v7/logger"
 	"github.com/aerospike/aerospike-client-go/v7/types"
+	"github.com/aerospike/aerospike-client-go/v7/types/pool"
 
 	ParticleType "github.com/aerospike/aerospike-client-go/v7/types/particle_type"
 	Buffer "github.com/aerospike/aerospike-client-go/v7/utils/buffer"
@@ -121,7 +122,7 @@ const (
 )
 
 var (
-	bigBuffPool = types.NewBufferPool()
+	buffPool = pool.NewTieredBufferPool(MinBufferSize, PoolCutOffBufferSize)
 )
 
 // command interface describes all commands available
@@ -2401,13 +2402,6 @@ func (cmd *baseCommand) validateHeader(header int64) Error {
 	return nil
 }
 
-var (
-	// MaxBufferSize protects against allocating massive memory blocks
-	// for buffers. Tweak this number if you are returning a lot of
-	// LDT elements in your queries.
-	MaxBufferSize = 1024 * 1024 * 120 // 120 MB
-)
-
 const (
 	msgHeaderPad  = 16
 	zlibHeaderPad = 2
@@ -2426,6 +2420,10 @@ func (cmd *baseCommand) sizeBufferSz(size int, willCompress bool) Error {
 		return newCustomNodeError(cmd.node, types.PARSE_ERROR, fmt.Sprintf("Invalid size for buffer: %d", size))
 	}
 
+	if cmd.conn != nil && cmd.conn.buffHist != nil {
+		cmd.conn.buffHist.Add(uint64(size))
+	}
+
 	if size <= len(cmd.dataBuffer) {
 		// don't touch the buffer
 		// this is a noop, here to silence the linters
@@ -2434,7 +2432,7 @@ func (cmd *baseCommand) sizeBufferSz(size int, willCompress bool) Error {
 		cmd.dataBuffer = cmd.dataBuffer[:size]
 	} else {
 		// not enough space
-		cmd.dataBuffer = bigBuffPool.Get(size)
+		cmd.dataBuffer = buffPool.Get(size)
 	}
 
 	// The trick here to keep a ref to the buffer, and set the buffer itself
@@ -2497,7 +2495,7 @@ func (cmd *baseCommand) compress() Error {
 		// If not possible to reuse it, reallocate a buffer.
 		if compressedSz+msgHeaderPad > len(cmd.dataBufferCompress) {
 			// compression added to the size of the message
-			buf := make([]byte, compressedSz+msgHeaderPad)
+			buf := buffPool.Get(compressedSz + msgHeaderPad)
 			if n := copy(buf[msgHeaderPad:], b.Bytes()); n < compressedSz {
 				return newError(types.SERIALIZE_ERROR)
 			}
@@ -2544,9 +2542,7 @@ func (cmd *baseCommand) isRead() bool {
 // This function should only be called from grpc commands.
 func (cmd *baseCommand) grpcPutBufferBack() {
 	// put the data buffer back in the pool in case it gets used again
-	if len(cmd.dataBuffer) >= DefaultBufferSize && len(cmd.dataBuffer) <= MaxBufferSize {
-		bufPool.Put(cmd.dataBuffer)
-	}
+	buffPool.Put(cmd.dataBuffer)
 	cmd.dataBuffer = nil
 }
 
@@ -2780,11 +2776,12 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			return errChain.setInDoubt(ifc.isRead(), cmd.commandWasSent)
 		}
 
-		// in case it has grown and re-allocated, put it back in the pool
-		if len(cmd.dataBufferCompress) > DefaultBufferSize && &cmd.dataBufferCompress != &cmd.conn.origDataBuffer {
-			bigBuffPool.Put(cmd.dataBufferCompress)
-		} else if len(cmd.dataBuffer) > DefaultBufferSize && &cmd.dataBuffer != &cmd.conn.origDataBuffer {
-			bigBuffPool.Put(cmd.dataBuffer)
+		// in case it has grown and re-allocated, it means
+		// it was borrowed from the pool, sp put it back.
+		if &cmd.dataBufferCompress != &cmd.conn.origDataBuffer {
+			buffPool.Put(cmd.dataBufferCompress)
+		} else if &cmd.dataBuffer != &cmd.conn.origDataBuffer {
+			buffPool.Put(cmd.dataBuffer)
 		}
 
 		cmd.dataBuffer = nil

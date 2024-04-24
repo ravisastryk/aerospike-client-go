@@ -75,7 +75,6 @@ func (cmd *grpcScanPartitionCommand) Execute() Error {
 func (cmd *grpcScanPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.recordset.signalEnd()
 
-	cmd.dataBuffer = bufPool.Get().([]byte)
 	defer cmd.grpcPutBufferBack()
 
 	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())
