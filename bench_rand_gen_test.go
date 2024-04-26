@@ -57,7 +57,8 @@ func Benchmark_math_rand_synched(b *testing.B) {
 }
 
 func Benchmark_xor_rand_fast_pool(b *testing.B) {
+	r := xor.NewXorRand()
 	for i := 0; i < b.N; i++ {
-		xor.Int64()
+		r.Int64()
 	}
 }
