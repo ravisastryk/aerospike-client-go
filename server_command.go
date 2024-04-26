@@ -141,16 +141,16 @@ func (cmd *serverCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 			return nil, e
 		}
 
-		if res.Status != 0 {
+		if res.GetStatus() != 0 {
 			e := newGrpcStatusError(res)
-			return res.Payload, e
+			return res.GetPayload(), e
 		}
 
-		if !res.HasNext {
+		if !res.GetHasNext() {
 			return nil, errGRPCStreamEnd
 		}
 
-		return res.Payload, nil
+		return res.GetPayload(), nil
 	}
 
 	cmd.conn = newGrpcFakeConnection(nil, readCallback)

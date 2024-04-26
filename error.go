@@ -210,12 +210,12 @@ func newGrpcError(e error, messages ...string) Error {
 }
 
 func newGrpcStatusError(res *kvs.AerospikeResponsePayload) Error {
-	if res.Status >= 0 {
-		return newError(types.ResultCode(res.Status)).markInDoubt(res.InDoubt)
+	if res.GetStatus() >= 0 {
+		return newError(types.ResultCode(res.GetStatus())).markInDoubt(res.GetInDoubt())
 	}
 
 	var resultCode = types.OK
-	switch res.Status {
+	switch res.GetStatus() {
 	case -16:
 		// BATCH_FAILED
 		resultCode = types.BATCH_FAILED
@@ -234,7 +234,7 @@ func newGrpcStatusError(res *kvs.AerospikeResponsePayload) Error {
 	case -9:
 		// ASYNC_QUEUE_FULL
 		// resultCode = types.ASYNC_QUEUE_FULL
-		return newError(types.SERVER_ERROR, "Server ASYNC_QUEUE_FULL").markInDoubt(res.InDoubt)
+		return newError(types.SERVER_ERROR, "Server ASYNC_QUEUE_FULL").markInDoubt(res.GetInDoubt())
 	case -8:
 		// SERVER_NOT_AVAILABLE
 		resultCode = types.SERVER_NOT_AVAILABLE
@@ -258,7 +258,7 @@ func newGrpcStatusError(res *kvs.AerospikeResponsePayload) Error {
 		resultCode = types.COMMON_ERROR
 	}
 
-	return newError(resultCode).markInDoubt(res.InDoubt)
+	return newError(resultCode).markInDoubt(res.GetInDoubt())
 }
 
 // SetInDoubt sets whether it is possible that the write transaction may have completed

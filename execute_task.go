@@ -196,13 +196,13 @@ func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
 			return false, e
 		}
 
-		if res.Status != 0 {
+		if res.GetStatus() != 0 {
 			e := newGrpcStatusError(res)
 			etsk.clnt.returnGrpcConnToPool(conn)
 			return false, e
 		}
 
-		switch *res.BackgroundTaskStatus {
+		switch res.GetBackgroundTaskStatus() {
 		case kvs.BackgroundTaskStatus_COMPLETE:
 			etsk.clnt.returnGrpcConnToPool(conn)
 			return true, nil
@@ -211,7 +211,7 @@ func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
 			return false, nil
 		}
 
-		if !res.HasNext {
+		if !res.GetHasNext() {
 			etsk.clnt.returnGrpcConnToPool(conn)
 			return false, nil
 		}

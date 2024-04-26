@@ -122,15 +122,15 @@ func (cmd *grpcQueryPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 			return nil, e
 		}
 
-		if res.Status != 0 {
+		if res.GetStatus() != 0 {
 			e := newGrpcStatusError(res)
 			cmd.recordset.sendError(e)
-			return res.Payload, e
+			return res.GetPayload(), e
 		}
 
-		cmd.grpcEOS = !res.HasNext
+		cmd.grpcEOS = !res.GetHasNext()
 
-		return res.Payload, nil
+		return res.GetPayload(), nil
 	}
 
 	cmd.conn = newGrpcFakeConnection(nil, readCallback)

@@ -327,7 +327,7 @@ func (clnt *ProxyClient) ServerVersion(policy *InfoPolicy) (string, Error) {
 
 	clnt.returnGrpcConnToPool(conn)
 
-	return res.Version, nil
+	return res.GetVersion(), nil
 }
 
 //-------------------------------------------------------
