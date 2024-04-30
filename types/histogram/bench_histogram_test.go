@@ -1,4 +1,4 @@
-// Copyright 2014-2022 Aerospike, Inc.
+// Copyright 2014-2024 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package histogram_test
 import (
 	"testing"
 
-	"github.com/aerospike/aerospike-client-go/v7/internal/histogram"
+	"github.com/aerospike/aerospike-client-go/v7/types/histogram"
 )
 
 var (
@@ -26,14 +26,14 @@ var (
 )
 
 func Benchmark_Histogram_Linear_Add(b *testing.B) {
-	h := histogram.NewLinear[int](5, 10)
+	h := histogram.New[int](histogram.Linear, 5, 10)
 	for i := 0; i < b.N; i++ {
 		h.Add(i)
 	}
 }
 
 func Benchmark_Histogram_Linear_Median(b *testing.B) {
-	h := histogram.NewLinear[int](50, 101)
+	h := histogram.New[int](histogram.Linear, 50, 101)
 	for i := 0; i < 10000; i++ {
 		h.Add(i)
 	}

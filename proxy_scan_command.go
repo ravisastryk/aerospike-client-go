@@ -68,6 +68,10 @@ func (cmd *grpcScanPartitionCommand) shouldRetry(e Error) bool {
 	panic("UNREACHABLE")
 }
 
+func (cmd *grpcScanPartitionCommand) transactionType() transactionType {
+	return ttScan
+}
+
 func (cmd *grpcScanPartitionCommand) Execute() Error {
 	panic("UNREACHABLE")
 }

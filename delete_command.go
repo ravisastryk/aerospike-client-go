@@ -113,6 +113,10 @@ func (cmd *deleteCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *deleteCommand) transactionType() transactionType {
+	return ttDelete
+}
+
 func (cmd *deleteCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.grpcPutBufferBack()
 

@@ -161,6 +161,10 @@ func (cmd *batchCommandDelete) parseRecord(rec *BatchRecord, key *Key, opCount i
 	return nil
 }
 
+func (cmd *batchCommandDelete) transactionType() transactionType {
+	return ttBatchWrite
+}
+
 func (cmd *batchCommandDelete) Execute() Error {
 	return cmd.execute(cmd)
 }

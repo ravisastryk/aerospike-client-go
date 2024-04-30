@@ -82,6 +82,10 @@ func (cmd *executeCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *executeCommand) transactionType() transactionType {
+	return ttUDF
+}
+
 func (cmd *executeCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.grpcPutBufferBack()
 

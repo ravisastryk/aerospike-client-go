@@ -19,23 +19,11 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 )
 
-type Type byte
-
-const (
-	Linear Type = iota
-	Logarithmic
-)
-
-type hvals interface {
-	~int | ~uint |
-		~int64 | ~int32 | ~int16 | ~int8 |
-		~uint64 | ~uint32 | ~uint16 | ~uint8 |
-		~float64 | ~float32
-}
-
-type Histogram[T hvals] struct {
+type SyncHistogram[T hvals] struct {
+	l     sync.RWMutex
 	htype Type
 	base  T
 
@@ -46,31 +34,16 @@ type Histogram[T hvals] struct {
 	Count   uint64   `json:"count"`
 }
 
-func New[T hvals](htype Type, base T, buckets int) *Histogram[T] {
-	return &Histogram[T]{
+func NewSync[T hvals](htype Type, base T, buckets int) *SyncHistogram[T] {
+	return &SyncHistogram[T]{
 		htype:   htype,
 		base:    base,
 		Buckets: make([]uint64, buckets),
 	}
 }
 
-func NewLinear[T hvals](base T, buckets int) *Histogram[T] {
-	return &Histogram[T]{
-		htype:   Linear,
-		base:    base,
-		Buckets: make([]uint64, buckets),
-	}
-}
-
-func NewExponential[T hvals](base T, buckets int) *Histogram[T] {
-	return &Histogram[T]{
-		htype:   Logarithmic,
-		base:    base,
-		Buckets: make([]uint64, buckets),
-	}
-}
-
-func (h *Histogram[T]) Reset() {
+func (h *SyncHistogram[T]) Reset() {
+	h.l.Lock()
 	for i := range h.Buckets {
 		h.Buckets[i] = 0
 	}
@@ -79,24 +52,24 @@ func (h *Histogram[T]) Reset() {
 	h.Max = 0
 	h.Sum = 0
 	h.Count = 0
+	h.l.Unlock()
 }
 
-func (h *Histogram[T]) Reshape(htype Type, base T, buckets int) {
+func (h *SyncHistogram[T]) Reshape(htype Type, base T, buckets int) {
+	h.l.Lock()
 	if h.htype == htype && h.base == base && len(h.Buckets) == buckets {
+		h.l.Unlock()
 		return
 	}
 
 	h.htype = htype
 	h.base = base
 	h.Buckets = make([]uint64, buckets)
-
-	h.Min = 0
-	h.Max = 0
-	h.Sum = 0
-	h.Count = 0
+	h.l.Unlock()
 }
 
-func (h *Histogram[T]) String() string {
+func (h *SyncHistogram[T]) String() string {
+	h.l.RLock()
 	res := new(strings.Builder)
 	switch h.htype {
 	case Linear:
@@ -113,13 +86,15 @@ func (h *Histogram[T]) String() string {
 		}
 		fmt.Fprintf(res, "[%v, inf) => %d\n", math.Pow(float64(h.base), float64(len(h.Buckets))-1), h.Buckets[len(h.Buckets)-1])
 	}
+	h.l.RUnlock()
 	return res.String()
 }
 
-func (h *Histogram[T]) Clone() *Histogram[T] {
+func (h *SyncHistogram[T]) Clone() *SyncHistogram[T] {
+	h.l.Lock()
 	b := make([]uint64, len(h.Buckets))
 	copy(b, h.Buckets)
-	return &Histogram[T]{
+	res := &SyncHistogram[T]{
 		htype: h.htype,
 		base:  h.base,
 
@@ -129,16 +104,44 @@ func (h *Histogram[T]) Clone() *Histogram[T] {
 		Sum:     h.Sum,
 		Count:   h.Count,
 	}
-}
-
-func (h *Histogram[T]) CloneAndReset() *Histogram[T] {
-	res := h.Clone()
-	h.Reset()
+	h.l.Unlock()
 	return res
 }
 
-func (h *Histogram[T]) Merge(other *Histogram[T]) error {
+func (h *SyncHistogram[T]) CloneAndReset() *SyncHistogram[T] {
+	h.l.Lock()
+	b := make([]uint64, len(h.Buckets))
+	copy(b, h.Buckets)
+	res := &SyncHistogram[T]{
+		htype: h.htype,
+		base:  h.base,
+
+		Buckets: b,
+		Min:     h.Min,
+		Max:     h.Max,
+		Sum:     h.Sum,
+		Count:   h.Count,
+	}
+
+	// Reset
+	for i := range h.Buckets {
+		h.Buckets[i] = 0
+	}
+
+	h.Min = 0
+	h.Max = 0
+	h.Sum = 0
+	h.Count = 0
+	h.l.Unlock()
+	return res
+}
+
+func (h *SyncHistogram[T]) Merge(other *SyncHistogram[T]) error {
+	h.l.Lock()
+	other.l.RLock()
 	if h.base != other.base || h.htype != other.htype || len(h.Buckets) != len(other.Buckets) {
+		other.l.RUnlock()
+		h.l.Unlock()
 		return errors.New("Histograms to not match")
 	}
 
@@ -156,18 +159,25 @@ func (h *Histogram[T]) Merge(other *Histogram[T]) error {
 	for i := range h.Buckets {
 		h.Buckets[i] += other.Buckets[i]
 	}
+	other.l.RUnlock()
+	h.l.Unlock()
 
 	return nil
 }
 
-func (h *Histogram[T]) Average() float64 {
+func (h *SyncHistogram[T]) Average() float64 {
+	h.l.RLock()
 	if h.Count > 0 {
-		return h.Sum / float64(h.Count)
+		res := h.Sum / float64(h.Count)
+		h.l.RUnlock()
+		return res
 	}
+	h.l.RUnlock()
 	return 0
 }
 
-func (h *Histogram[T]) Median() T {
+func (h *SyncHistogram[T]) Median() T {
+	h.l.RLock()
 	var s uint64 = 0
 	c := h.Count / 2
 	for i, bv := range h.Buckets {
@@ -175,15 +185,22 @@ func (h *Histogram[T]) Median() T {
 		if s >= c {
 			// found the bucket
 			if h.htype == Linear {
-				return T(i+1) * h.base
+				res := T(i+1) * h.base
+				h.l.RUnlock()
+				return res
 			}
-			return T(math.Pow(float64(h.base), float64(i+1)))
+			res := T(math.Pow(float64(h.base), float64(i+1)))
+			h.l.RUnlock()
+			return res
 		}
 	}
-	return h.Max
+	res := h.Max
+	h.l.RUnlock()
+	return res
 }
 
-func (h *Histogram[T]) Add(v T) {
+func (h *SyncHistogram[T]) Add(v T) {
+	h.l.Lock()
 	if h.Count == 0 {
 		h.Max = v
 		h.Min = v
@@ -215,4 +232,5 @@ func (h *Histogram[T]) Add(v T) {
 	} else {
 		h.Buckets[slot]++
 	}
+	h.l.Unlock()
 }

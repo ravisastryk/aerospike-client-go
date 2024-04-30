@@ -93,6 +93,10 @@ func (cmd *batchCommand) getPolicy(ifc command) Policy {
 	return cmd.policy
 }
 
+func (cmd *batchCommand) transactionType() transactionType {
+	return ttNone
+}
+
 func (cmd *batchCommand) Execute() Error {
 	return cmd.execute(cmd)
 }

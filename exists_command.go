@@ -107,6 +107,10 @@ func (cmd *existsCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *existsCommand) transactionType() transactionType {
+	return ttExists
+}
+
 func (cmd *existsCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.grpcPutBufferBack()
 

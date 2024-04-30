@@ -59,6 +59,10 @@ func (cmd *scanObjectsCommand) parseResult(ifc command, conn *Connection) Error 
 	return cmd.baseMultiCommand.parseResult(ifc, conn)
 }
 
+func (cmd *scanObjectsCommand) transactionType() transactionType {
+	return ttScan
+}
+
 func (cmd *scanObjectsCommand) Execute() Error {
 	defer cmd.recordset.signalEnd()
 	err := cmd.execute(cmd)

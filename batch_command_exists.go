@@ -106,6 +106,10 @@ func (cmd *batchCommandExists) parseRecordResults(ifc command, receiveSize int) 
 	return true, nil
 }
 
+func (cmd *batchCommandExists) transactionType() transactionType {
+	return ttBatchRead
+}
+
 func (cmd *batchCommandExists) Execute() Error {
 	return cmd.execute(cmd)
 }

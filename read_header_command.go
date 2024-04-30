@@ -104,6 +104,10 @@ func (cmd *readHeaderCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *readHeaderCommand) transactionType() transactionType {
+	return ttGetHeader
+}
+
 func (cmd *readHeaderCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.grpcPutBufferBack()
 

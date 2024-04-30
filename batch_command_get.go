@@ -212,6 +212,10 @@ func (cmd *batchCommandGet) parseRecord(key *Key, opCount int, generation, expir
 	return newRecord(cmd.node, key, bins, generation, expiration), nil
 }
 
+func (cmd *batchCommandGet) transactionType() transactionType {
+	return ttBatchRead
+}
+
 func (cmd *batchCommandGet) Execute() Error {
 	return cmd.execute(cmd)
 }

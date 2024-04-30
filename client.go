@@ -1727,11 +1727,28 @@ func (clnt *Client) String() string {
 	return ""
 }
 
+// MetricsEnabled returns true if metrics are enabled for the cluster.
+func (clnt *Client) MetricsEnabled() bool {
+	return clnt.cluster.MetricsEnabled()
+}
+
+// EnableMetrics enables the cluster transaction metrics gathering.
+// If the parameters for the histogram in the policy are the different from the one already
+// on the cluster, the metrics will be reset.
+func (clnt *Client) EnableMetrics(policy *MetricsPolicy) {
+	clnt.cluster.EnableMetrics(policy)
+}
+
+// DisableMetrics disables the cluster transaction metrics gathering.
+func (clnt *Client) DisableMetrics() {
+	clnt.cluster.DisableMetrics()
+}
+
 // Stats returns internal statistics regarding the inner state of the client and the cluster.
 func (clnt *Client) Stats() (map[string]interface{}, Error) {
 	resStats := clnt.cluster.statsCopy()
 
-	clusterStats := nodeStats{}
+	clusterStats := *newNodeStats(clnt.cluster.MetricsPolicy())
 	for _, stats := range resStats {
 		clusterStats.aggregate(&stats)
 	}

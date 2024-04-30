@@ -70,6 +70,10 @@ func (cmd *operateCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *operateCommand) transactionType() transactionType {
+	return ttOperate
+}
+
 func (cmd *operateCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.grpcPutBufferBack()
 

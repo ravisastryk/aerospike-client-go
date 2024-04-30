@@ -140,6 +140,10 @@ func (cmd *touchCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *touchCommand) transactionType() transactionType {
+	return ttPut
+}
+
 func (cmd *touchCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.grpcPutBufferBack()
 

@@ -229,6 +229,13 @@ func (cmd *batchCommandOperate) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *batchCommandOperate) transactionType() transactionType {
+	if cmd.isRead() {
+		return ttBatchRead
+	}
+	return ttBatchWrite
+}
+
 func (cmd *batchCommandOperate) generateBatchNodes(cluster *Cluster) ([]*batchNode, Error) {
 	return newBatchOperateNodeListIfcRetry(cluster, cmd.policy, cmd.records, cmd.sequenceAP, cmd.sequenceSC, cmd.batch)
 }
