@@ -54,7 +54,7 @@ type Error interface {
 	Trace() string
 
 	iter(int) Error
-	setInDoubt(bool, bool) Error
+	setInDoubt(bool, int) Error
 	setNode(*Node) Error
 	markInDoubt(bool) Error
 	markInDoubtIf(bool) Error
@@ -264,10 +264,8 @@ func newGrpcStatusError(res *kvs.AerospikeResponsePayload) Error {
 // SetInDoubt sets whether it is possible that the write transaction may have completed
 // even though this error was generated.  This may be the case when a
 // client error occurs (like timeout) after the command was sent to the server.
-func (ase *AerospikeError) setInDoubt(isRead bool, commandWasSent bool) Error {
-	if !isRead && commandWasSent {
-		ase.InDoubt = true
-	}
+func (ase *AerospikeError) setInDoubt(isRead bool, commandSentCounter int) Error {
+	ase.InDoubt = !isRead && (commandSentCounter > 1 || (commandSentCounter == 1 && (ase.ResultCode == types.TIMEOUT || ase.ResultCode <= 0)))
 	return ase
 }
 

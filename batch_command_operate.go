@@ -121,7 +121,7 @@ func (cmd *batchCommandOperate) parseRecordResults(ifc command, receiveSize int)
 			if resultCode == types.UDF_BAD_RESPONSE {
 				rec, err := cmd.parseRecord(cmd.records[batchIndex].key(), opCount, generation, expiration)
 				if err != nil {
-					cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandWasSent))
+					cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandSentCounter))
 					return false, err
 				}
 
@@ -134,9 +134,9 @@ func (cmd *batchCommandOperate) parseRecordResults(ifc command, receiveSize int)
 				// Need to store record because failure bin contains an error message.
 				cmd.records[batchIndex].setRecord(rec)
 				if msg, ok := msg.(string); ok && len(msg) > 0 {
-					cmd.records[batchIndex].setErrorWithMsg(cmd.node, resultCode, msg, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandWasSent))
+					cmd.records[batchIndex].setErrorWithMsg(cmd.node, resultCode, msg, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandSentCounter))
 				} else {
-					cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandWasSent))
+					cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandSentCounter))
 				}
 
 				// If cmd is the end marker of the response, do not proceed further
@@ -147,7 +147,7 @@ func (cmd *batchCommandOperate) parseRecordResults(ifc command, receiveSize int)
 				continue
 			}
 
-			cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandWasSent))
+			cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandSentCounter))
 
 			// If cmd is the end marker of the response, do not proceed further
 			if (info3 & _INFO3_LAST) == _INFO3_LAST {
@@ -162,7 +162,7 @@ func (cmd *batchCommandOperate) parseRecordResults(ifc command, receiveSize int)
 			if cmd.objects == nil {
 				rec, err := cmd.parseRecord(cmd.records[batchIndex].key(), opCount, generation, expiration)
 				if err != nil {
-					cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandWasSent))
+					cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandSentCounter))
 					return false, err
 				}
 				cmd.records[batchIndex].setRecord(rec)
