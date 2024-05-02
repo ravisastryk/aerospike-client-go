@@ -27,6 +27,8 @@ type batcher interface {
 	retryBatch(ifc batcher, cluster *Cluster, deadline time.Time, iteration int, commandWasSent bool) (bool, Error)
 	generateBatchNodes(*Cluster) ([]*batchNode, Error)
 	setSequence(int, int)
+
+	executeSingle(*Client) Error
 }
 
 type batchCommand struct {

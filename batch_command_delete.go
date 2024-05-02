@@ -165,7 +165,36 @@ func (cmd *batchCommandDelete) transactionType() transactionType {
 	return ttBatchWrite
 }
 
+func (cmd *batchCommandDelete) executeSingle(client *Client) Error {
+	for i, key := range cmd.keys {
+		res, err := client.Operate(cmd.policy.toWritePolicy(), key, DeleteOp())
+		cmd.records[i].setRecord(res)
+		if err != nil {
+			cmd.records[i].setRawError(err)
+
+			// Key not found is NOT an error for batch requests
+			if err.resultCode() == types.KEY_NOT_FOUND_ERROR {
+				continue
+			}
+
+			if err.resultCode() == types.FILTERED_OUT {
+				cmd.filteredOutCnt++
+				continue
+			}
+
+			if cmd.policy.AllowPartialResults {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
 func (cmd *batchCommandDelete) Execute() Error {
+	if len(cmd.keys) == 1 {
+		return cmd.executeSingle(cmd.node.cluster.client)
+	}
 	return cmd.execute(cmd)
 }
 

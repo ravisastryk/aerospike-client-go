@@ -105,6 +105,9 @@ func NewClientWithPolicyAndHost(policy *ClientPolicy, hosts ...*Host) (*Client, 
 		DefaultInfoPolicy:        NewInfoPolicy(),
 	}
 
+	// back reference especially used in batch commands
+	cluster.client = client
+
 	runtime.SetFinalizer(client, clientFinalizer)
 	return client, err
 
@@ -929,17 +932,10 @@ func (clnt *Client) ListUDF(policy *BasePolicy) ([]*UDF, Error) {
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *Client) Execute(policy *WritePolicy, key *Key, packageName string, functionName string, args ...Value) (interface{}, Error) {
-	policy = clnt.getUsableWritePolicy(policy)
-	command, err := newExecuteCommand(clnt.cluster, policy, key, packageName, functionName, NewValueArray(args))
+	record, err := clnt.execute(policy, key, packageName, functionName, args...)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := command.Execute(); err != nil {
-		return nil, err
-	}
-
-	record := command.GetRecord()
 
 	if record == nil || len(record.Bins) == 0 {
 		return nil, nil
@@ -954,6 +950,20 @@ func (clnt *Client) Execute(policy *WritePolicy, key *Key, packageName string, f
 	}
 
 	return nil, ErrUDFBadResponse.err()
+}
+
+func (clnt *Client) execute(policy *WritePolicy, key *Key, packageName string, functionName string, args ...Value) (*Record, Error) {
+	policy = clnt.getUsableWritePolicy(policy)
+	command, err := newExecuteCommand(clnt.cluster, policy, key, packageName, functionName, NewValueArray(args))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := command.Execute(); err != nil {
+		return nil, err
+	}
+
+	return command.GetRecord(), nil
 }
 
 //----------------------------------------------------------

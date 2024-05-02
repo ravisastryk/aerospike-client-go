@@ -32,6 +32,8 @@ import (
 // Cluster encapsulates the aerospike cluster nodes and manages
 // them.
 type Cluster struct {
+	client *Client
+
 	// Initial host nodes specified by user.
 	seeds iatomic.SyncVal //[]*Host
 

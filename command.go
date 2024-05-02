@@ -2884,7 +2884,7 @@ func deviceOverloadError(err Error) bool {
 
 func applyTransactionMetrics(node *Node, tt transactionType, tb time.Time) {
 	if node != nil && node.cluster.MetricsEnabled() {
-		applyMetrics(tt, node.stats, tb)
+		applyMetrics(tt, &node.stats, tb)
 	}
 }
 
