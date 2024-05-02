@@ -22,18 +22,20 @@ import (
 type batchCommandUDF struct {
 	batchCommand
 
-	keys         []*Key
-	packageName  string
-	functionName string
-	args         ValueArray
-	records      []*BatchRecord
-	attr         *batchAttr
+	batchUDFPolicy *BatchUDFPolicy
+	keys           []*Key
+	packageName    string
+	functionName   string
+	args           ValueArray
+	records        []*BatchRecord
+	attr           *batchAttr
 }
 
 func newBatchCommandUDF(
 	node *Node,
 	batch *batchNode,
 	policy *BatchPolicy,
+	batchUDFPolicy *BatchUDFPolicy,
 	keys []*Key,
 	packageName,
 	functionName string,
@@ -174,7 +176,36 @@ func (cmd *batchCommandUDF) isRead() bool {
 	return !cmd.attr.hasWrite
 }
 
+func (cmd *batchCommandUDF) executeSingle(client *Client) Error {
+	for i, key := range cmd.keys {
+		res, err := client.execute(cmd.batchUDFPolicy.toWritePolicy(cmd.policy), key, cmd.packageName, cmd.functionName, cmd.args...)
+		cmd.records[i].setRecord(res)
+		if err != nil {
+			cmd.records[i].setRawError(err)
+
+			// Key not found is NOT an error for batch requests
+			if err.resultCode() == types.KEY_NOT_FOUND_ERROR {
+				continue
+			}
+
+			if err.resultCode() == types.FILTERED_OUT {
+				cmd.filteredOutCnt++
+				continue
+			}
+
+			if cmd.policy.AllowPartialResults {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
 func (cmd *batchCommandUDF) Execute() Error {
+	if len(cmd.keys) == 1 {
+		return cmd.executeSingle(cmd.node.cluster.client)
+	}
 	return cmd.execute(cmd)
 }
 

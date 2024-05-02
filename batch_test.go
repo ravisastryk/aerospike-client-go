@@ -690,10 +690,10 @@ var _ = gg.Describe("Aerospike", func() {
 
 				for _, bri := range batchRecords {
 					br := bri.BatchRec()
-					gm.Expect(br.InDoubt).To(gm.BeTrue())
+					gm.Expect(br.InDoubt).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.UDF_BAD_RESPONSE))
 					gm.Expect(br.Err.Matches(types.UDF_BAD_RESPONSE)).To(gm.Equal(true))
-					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
+					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 				}
 
 				if nsInfo(ns, "storage-engine") == "device" {
@@ -719,13 +719,13 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 
 					br := batchRecords[0].BatchRec()
-					gm.Expect(br.Err.IsInDoubt()).To(gm.BeTrue())
+					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.RECORD_TOO_BIG))
 					gm.Expect(br.Err.Matches(types.RECORD_TOO_BIG)).To(gm.Equal(true))
 					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
 
 					br = batchRecords[1].BatchRec()
-					gm.Expect(br.Err.IsInDoubt()).To(gm.BeTrue())
+					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.RECORD_TOO_BIG))
 					gm.Expect(br.Err.Matches(types.RECORD_TOO_BIG)).To(gm.Equal(true))
 					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))

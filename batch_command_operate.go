@@ -225,7 +225,62 @@ func (cmd *batchCommandOperate) parseRecord(key *Key, opCount int, generation, e
 	return newRecord(cmd.node, key, bins, generation, expiration), nil
 }
 
+func (cmd *batchCommandOperate) executeSingle(client *Client) Error {
+	var res *Record
+	var err Error
+	for _, br := range cmd.records {
+
+		switch br := br.(type) {
+		case *BatchRead:
+			var ops []*Operation
+			if br.headerOnly() {
+				ops = []*Operation{GetHeaderOp()}
+			} else if len(br.BinNames) > 0 {
+				for i := range br.BinNames {
+					ops = append(ops, GetBinOp(br.BinNames[i]))
+				}
+			} else {
+				ops = br.Ops
+			}
+			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, br.Ops...)
+		case *BatchWrite:
+			res, err = client.Operate(br.policy.toWritePolicy(cmd.policy), br.Key, br.ops...)
+			br.setRecord(res)
+		case *BatchDelete:
+			res, err = client.Operate(br.policy.toWritePolicy(cmd.policy), br.Key, DeleteOp())
+			br.setRecord(res)
+		case *BatchUDF:
+			res, err = client.execute(br.policy.toWritePolicy(cmd.policy), br.Key, br.packageName, br.functionName, br.functionArgs...)
+		}
+
+		br.setRecord(res)
+		if err != nil {
+			br.BatchRec().setRawError(err)
+
+			// Key not found is NOT an error for batch requests
+			if err.resultCode() == types.KEY_NOT_FOUND_ERROR {
+				continue
+			}
+
+			if err.resultCode() == types.FILTERED_OUT {
+				cmd.filteredOutCnt++
+				continue
+			}
+
+			if cmd.policy.AllowPartialResults {
+				continue
+			}
+
+			return err
+		}
+	}
+	return nil
+}
+
 func (cmd *batchCommandOperate) Execute() Error {
+	if len(cmd.records) == 1 {
+		return cmd.executeSingle(cmd.node.cluster.client)
+	}
 	return cmd.execute(cmd)
 }
 
