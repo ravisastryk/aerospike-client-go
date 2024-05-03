@@ -159,7 +159,7 @@ type command interface {
 	isRead() bool
 
 	execute(ifc command) Error
-	executeAt(ifc command, policy *BasePolicy, deadline time.Time, iterations int, commandWasSent bool) Error
+	executeAt(ifc command, policy *BasePolicy, deadline time.Time, iterations int) Error
 
 	canPutConnBack() bool
 
@@ -2549,8 +2549,8 @@ func (cmd *baseCommand) compressedSize() int {
 	return int(size)
 }
 
-func (cmd *baseCommand) batchInDoubt(isWrite bool, commandWasSent bool) bool {
-	return isWrite && commandWasSent
+func (cmd *baseCommand) batchInDoubt(isWrite bool, commandSentCounter int) bool {
+	return isWrite && commandSentCounter > 1
 }
 
 func (cmd *baseCommand) isRead() bool {
@@ -2575,10 +2575,10 @@ func (cmd *baseCommand) execute(ifc command) Error {
 	policy := ifc.getPolicy(ifc).GetBasePolicy()
 	deadline := policy.deadline()
 
-	return cmd.executeAt(ifc, policy, deadline, -1, false)
+	return cmd.executeAt(ifc, policy, deadline, -1)
 }
 
-func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time.Time, iterations int, commandWasSent bool) (errChain Error) {
+func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time.Time, iterations int) (errChain Error) {
 	// for exponential backoff
 	interval := policy.SleepBetweenRetries
 
@@ -2601,7 +2601,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 				cmd.node.cluster.maxRetriesExceededCount.GetAndIncrement()
 			}
 			applyTransactionMetrics(cmd.node, ifc.transactionType(), transStart)
-			return chainErrors(ErrMaxRetriesExceeded.err(), errChain).iter(cmd.commandSentCounter).setInDoubt(ifc.isRead(), cmd.commandWasSent).setNode(cmd.node)
+			return chainErrors(ErrMaxRetriesExceeded.err(), errChain).iter(cmd.commandSentCounter).setInDoubt(ifc.isRead(), cmd.commandSentCounter).setNode(cmd.node)
 		}
 
 		// Sleep before trying again, after the first iteration
@@ -2623,19 +2623,19 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			if !ifc.prepareRetry(ifc, isClientTimeout || (err != nil && err.Matches(types.SERVER_NOT_AVAILABLE))) {
 				if bc, ok := ifc.(batcher); ok {
 					// Batch may be retried in separate commands.
-					alreadyRetried, err := bc.retryBatch(bc, cmd.node.cluster, deadline, cmd.commandSentCounter, cmd.commandWasSent)
+					alreadyRetried, err := bc.retryBatch(bc, cmd.node.cluster, deadline, cmd.commandSentCounter)
 					if alreadyRetried {
 						// Batch was retried in separate subcommands. Complete this command.
 						applyTransactionMetrics(cmd.node, ifc.transactionType(), transStart)
 						if err != nil {
-							return chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+							return chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 						}
 						return nil
 					}
 
 					// chain the errors and retry
 					if err != nil {
-						errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+						errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 						continue
 					}
 				}
@@ -2659,7 +2659,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 
 			// chain the errors
 			if err != nil {
-				errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+				errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 			}
 
 			// Node is currently inactive. Retry.
@@ -2673,7 +2673,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			applyTransactionErrorMetrics(cmd.node)
 
 			// chain the errors
-			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 
 			// Max error rate achieved, try again per policy
 			continue
@@ -2684,7 +2684,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			isClientTimeout = false
 
 			// chain the errors
-			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 
 			applyTransactionErrorMetrics(cmd.node)
 
@@ -2714,7 +2714,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			applyTransactionErrorMetrics(cmd.node)
 
 			// chain the errors
-			err = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			err = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 
 			// All runtime exceptions are considered fatal. Do not retry.
 			// Close socket to flush out possible garbage. Do not put back in pool.
@@ -2737,7 +2737,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 		// now that the deadline has been set in the buffer, compress the contents
 		if err = cmd.compress(); err != nil {
 			applyTransactionErrorMetrics(cmd.node)
-			return chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			return chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 		}
 
 		// now that the deadline has been set in the buffer, compress the contents
@@ -2754,7 +2754,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			applyTransactionErrorMetrics(cmd.node)
 
 			// chain the errors
-			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 
 			isClientTimeout = false
 			if deviceOverloadError(err) {
@@ -2776,7 +2776,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			applyTransactionErrorMetrics(cmd.node)
 
 			// chain the errors
-			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			errChain = chainErrors(err, errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 
 			if networkError(err) {
 				isTimeout := errors.Is(err, ErrTimeout)
@@ -2813,7 +2813,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 			}
 
 			applyTransactionMetrics(cmd.node, ifc.transactionType(), transStart)
-			return errChain.setInDoubt(ifc.isRead(), cmd.commandWasSent)
+			return errChain.setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 		}
 
 		applyTransactionMetrics(cmd.node, ifc.transactionType(), transStart)
@@ -2842,7 +2842,7 @@ func (cmd *baseCommand) executeAt(ifc command, policy *BasePolicy, deadline time
 	if cmd.node != nil && cmd.node.cluster != nil {
 		cmd.node.cluster.totalTimeoutExceededCount.GetAndIncrement()
 	}
-	errChain = chainErrors(ErrTimeout.err(), errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandWasSent)
+	errChain = chainErrors(ErrTimeout.err(), errChain).iter(cmd.commandSentCounter).setNode(cmd.node).setInDoubt(ifc.isRead(), cmd.commandSentCounter)
 	return errChain
 }
 

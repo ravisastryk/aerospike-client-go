@@ -119,8 +119,8 @@ func (cmd *batchCommandUDF) parseRecordResults(ifc command, receiveSize int) (bo
 				return false, err
 			}
 		} else {
-			cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandWasSent))
 			cmd.records[batchIndex].Err = chainErrors(newCustomNodeError(cmd.node, resultCode), cmd.records[batchIndex].Err)
+			cmd.records[batchIndex].setError(cmd.node, resultCode, cmd.batchInDoubt(cmd.attr.hasWrite, cmd.commandSentCounter))
 		}
 	}
 	return true, nil
