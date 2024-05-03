@@ -1,5 +1,49 @@
 # Change History
 
+## May 3 2024: v7.3.0
+
+This is a major feature release of the Go client and touches some of the fundamental aspects of the inner workings of it.
+We suggest complete testing of your application before using it in production.
+
+- **New Features**
+  - [CLIENT-2238] Convert batch calls with just one key per node in sub-batches to Get requests.
+    If the number keys for a sub-batch to a node is equal or less then the value set in BatchPolicy.DirectGetThreshold, the client use direct get instead of batch commands to reduce the load on the server.
+
+  - [CLIENT-2274] Use constant sized connection buffers and resize the connection buffers over time.
+
+    The client would use a single buffer on the connection and would grow it
+    per demand in case it needed a bigger buffer, but would not shrink it.
+    This helped with avoiding using buffer pools and the associated
+    synchronization, but resulted in excessive memory use in case there were a
+    few large records in the results, even if they were infrequent.
+    This changeset does two things:
+            1. Will use a memory pool for large records only. Large records
+               are defined as records bigger than `aerospike.PoolCutOffBufferSize`.
+               This is a tiered pool with different buffer sizes. The pool
+               uses `sync.Pool` under the cover, releasing unused buffers back to the
+               runtime.
+            2. By using bigger `aerospike.DefaultBufferSize` values, the user can
+               imitate the old behavior, so no memory pool is used most of the time.
+            3. Setting `aerospike.MinBufferSize` will prevent the pool using buffer sizes too small,
+               having to grow them frequently.
+            4. Buffers are resized every 5 seconds to the median size of buffers used over the previous period,
+               within the above limits.
+
+    This change should result in much lower memory use by the client.
+
+  - [CLIENT-2702] Support Client Transaction Metrics. The native client can now track transaction latencies using histograms. Enable using the `Client.EnableMetrics` API.
+
+- **Improvements**
+  - [CLIENT-2889] Increase grpc `MaxRecvMsgSize` to handle big records for the proxy client.
+  - [CLIENT-2891] Export various batch operation struct fields. Resolves #247.
+  - Remove dependency on `xrand` sub-package since the native API is fast enough.
+  - Linter Clean up.
+
+- **Fixes**
+  - [CLIENT-2905] Fix inconsistency of handling in-doubt flag in errors.
+  - [CLIENT-2890] Support `[]MapPair` return in reflection.
+    This fix supports unmarshalling ordered maps into `map[K]V` and `[]MapPair` in the structs.
+
 ## April 10 2024: v7.2.1
 
 This release updates the dependencies to mitigate security issues.
