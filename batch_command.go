@@ -27,6 +27,8 @@ type batcher interface {
 	retryBatch(ifc batcher, cluster *Cluster, deadline time.Time, iteration int, commandWasSent bool) (bool, Error)
 	generateBatchNodes(*Cluster) ([]*batchNode, Error)
 	setSequence(int, int)
+
+	executeSingle(*Client) Error
 }
 
 type batchCommand struct {
@@ -91,6 +93,10 @@ func (cmd *batchCommand) setSequence(ap, sc int) {
 
 func (cmd *batchCommand) getPolicy(ifc command) Policy {
 	return cmd.policy
+}
+
+func (cmd *batchCommand) transactionType() transactionType {
+	return ttNone
 }
 
 func (cmd *batchCommand) Execute() Error {

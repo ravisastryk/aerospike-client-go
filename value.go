@@ -617,7 +617,7 @@ func (vl BytesValue) GetObject() interface{} {
 
 // String implements Stringer interface.
 func (vl BytesValue) String() string {
-	return Buffer.BytesToHexString(vl)
+	return fmt.Sprintf("% 02x", []byte(vl))
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1136,7 +1136,7 @@ func (vl HLLValue) GetObject() interface{} {
 
 // String implements Stringer interface.
 func (vl HLLValue) String() string {
-	return Buffer.BytesToHexString([]byte(vl))
+	return fmt.Sprintf("% 02x", []byte(vl))
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1182,7 +1182,7 @@ func (vl *RawBlobValue) GetObject() interface{} {
 
 // String implements Stringer interface.
 func (vl *RawBlobValue) String() string {
-	return Buffer.BytesToHexString(vl.Data)
+	return fmt.Sprintf("% 02x", vl.Data)
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -136,7 +136,7 @@ func (interceptor *authInterceptor) login() Error {
 		return newGrpcError(gerr, gerr.Error())
 	}
 
-	claims := strings.Split(res.Token, ".")
+	claims := strings.Split(res.GetToken(), ".")
 	decClaims, gerr := base64.RawURLEncoding.DecodeString(claims[1])
 	if err != nil {
 		return newGrpcError(err, "Invalid token encoding. Expected base64.")
@@ -166,7 +166,7 @@ func (interceptor *authInterceptor) login() Error {
 
 	// Set expiry based on local clock.
 	expiry := time.Now().Add(ttl)
-	interceptor.fullToken = "Bearer " + res.Token
+	interceptor.fullToken = "Bearer " + res.GetToken()
 	interceptor.expiry = expiry
 
 	return nil

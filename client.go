@@ -105,6 +105,9 @@ func NewClientWithPolicyAndHost(policy *ClientPolicy, hosts ...*Host) (*Client, 
 		DefaultInfoPolicy:        NewInfoPolicy(),
 	}
 
+	// back reference especially used in batch commands
+	cluster.client = client
+
 	runtime.SetFinalizer(client, clientFinalizer)
 	return client, err
 
@@ -631,7 +634,7 @@ func (clnt *Client) BatchDelete(policy *BatchPolicy, deletePolicy *BatchDeletePo
 		return nil, err
 	}
 
-	cmd := newBatchCommandDelete(nil, nil, policy, keys, records, attr)
+	cmd := newBatchCommandDelete(nil, nil, policy, deletePolicy, keys, records, attr)
 	_, err = clnt.batchExecute(policy, batchNodes, cmd)
 	return records, err
 }
@@ -682,7 +685,7 @@ func (clnt *Client) BatchExecute(policy *BatchPolicy, udfPolicy *BatchUDFPolicy,
 		return nil, err
 	}
 
-	cmd := newBatchCommandUDF(nil, nil, policy, keys, packageName, functionName, args, records, attr)
+	cmd := newBatchCommandUDF(nil, nil, policy, udfPolicy, keys, packageName, functionName, args, records, attr)
 	_, err = clnt.batchExecute(policy, batchNodes, cmd)
 	return records, err
 }
@@ -929,17 +932,10 @@ func (clnt *Client) ListUDF(policy *BasePolicy) ([]*UDF, Error) {
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *Client) Execute(policy *WritePolicy, key *Key, packageName string, functionName string, args ...Value) (interface{}, Error) {
-	policy = clnt.getUsableWritePolicy(policy)
-	command, err := newExecuteCommand(clnt.cluster, policy, key, packageName, functionName, NewValueArray(args))
+	record, err := clnt.execute(policy, key, packageName, functionName, args...)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := command.Execute(); err != nil {
-		return nil, err
-	}
-
-	record := command.GetRecord()
 
 	if record == nil || len(record.Bins) == 0 {
 		return nil, nil
@@ -954,6 +950,20 @@ func (clnt *Client) Execute(policy *WritePolicy, key *Key, packageName string, f
 	}
 
 	return nil, ErrUDFBadResponse.err()
+}
+
+func (clnt *Client) execute(policy *WritePolicy, key *Key, packageName string, functionName string, args ...Value) (*Record, Error) {
+	policy = clnt.getUsableWritePolicy(policy)
+	command, err := newExecuteCommand(clnt.cluster, policy, key, packageName, functionName, NewValueArray(args))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := command.Execute(); err != nil {
+		return nil, err
+	}
+
+	return command.GetRecord(), nil
 }
 
 //----------------------------------------------------------
@@ -1727,11 +1737,28 @@ func (clnt *Client) String() string {
 	return ""
 }
 
+// MetricsEnabled returns true if metrics are enabled for the cluster.
+func (clnt *Client) MetricsEnabled() bool {
+	return clnt.cluster.MetricsEnabled()
+}
+
+// EnableMetrics enables the cluster transaction metrics gathering.
+// If the parameters for the histogram in the policy are the different from the one already
+// on the cluster, the metrics will be reset.
+func (clnt *Client) EnableMetrics(policy *MetricsPolicy) {
+	clnt.cluster.EnableMetrics(policy)
+}
+
+// DisableMetrics disables the cluster transaction metrics gathering.
+func (clnt *Client) DisableMetrics() {
+	clnt.cluster.DisableMetrics()
+}
+
 // Stats returns internal statistics regarding the inner state of the client and the cluster.
 func (clnt *Client) Stats() (map[string]interface{}, Error) {
 	resStats := clnt.cluster.statsCopy()
 
-	clusterStats := nodeStats{}
+	clusterStats := *newNodeStats(clnt.cluster.MetricsPolicy())
 	for _, stats := range resStats {
 		clusterStats.aggregate(&stats)
 	}

@@ -129,6 +129,13 @@ func (br *BatchRecord) setRecord(record *Record) {
 	br.ResultCode = types.OK
 }
 
+// Set error result directly.
+func (br *BatchRecord) setRawError(err Error) {
+	br.ResultCode = err.resultCode()
+	br.InDoubt = err.IsInDoubt()
+	br.Err = err
+}
+
 // Set error result. For internal use only.
 func (br *BatchRecord) setError(node *Node, resultCode types.ResultCode, inDoubt bool) {
 	br.ResultCode = resultCode

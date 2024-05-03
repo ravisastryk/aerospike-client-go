@@ -68,6 +68,10 @@ func (cmd *grpcScanPartitionCommand) shouldRetry(e Error) bool {
 	panic("UNREACHABLE")
 }
 
+func (cmd *grpcScanPartitionCommand) transactionType() transactionType {
+	return ttScan
+}
+
 func (cmd *grpcScanPartitionCommand) Execute() Error {
 	panic("UNREACHABLE")
 }
@@ -75,7 +79,6 @@ func (cmd *grpcScanPartitionCommand) Execute() Error {
 func (cmd *grpcScanPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	defer cmd.recordset.signalEnd()
 
-	cmd.dataBuffer = bufPool.Get().([]byte)
 	defer cmd.grpcPutBufferBack()
 
 	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())
@@ -126,15 +129,15 @@ func (cmd *grpcScanPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 			return nil, e
 		}
 
-		cmd.grpcEOS = !res.HasNext
+		cmd.grpcEOS = !res.GetHasNext()
 
-		if res.Status != 0 {
+		if res.GetStatus() != 0 {
 			e := newGrpcStatusError(res)
 			cmd.recordset.sendError(e)
-			return res.Payload, e
+			return res.GetPayload(), e
 		}
 
-		return res.Payload, nil
+		return res.GetPayload(), nil
 	}
 
 	cmd.conn = newGrpcFakeConnection(nil, readCallback)

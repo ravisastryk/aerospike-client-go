@@ -113,8 +113,11 @@ func (cmd *deleteCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *deleteCommand) transactionType() transactionType {
+	return ttDelete
+}
+
 func (cmd *deleteCommand) ExecuteGRPC(clnt *ProxyClient) Error {
-	cmd.dataBuffer = bufPool.Get().([]byte)
 	defer cmd.grpcPutBufferBack()
 
 	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())
@@ -147,11 +150,11 @@ func (cmd *deleteCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	defer clnt.returnGrpcConnToPool(conn)
 
-	if res.Status != 0 {
+	if res.GetStatus() != 0 {
 		return newGrpcStatusError(res)
 	}
 
-	cmd.conn = newGrpcFakeConnection(res.Payload, nil)
+	cmd.conn = newGrpcFakeConnection(res.GetPayload(), nil)
 	err = cmd.parseResult(cmd, cmd.conn)
 	if err != nil {
 		return err
