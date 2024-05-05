@@ -57,13 +57,14 @@ func NewBatchReadPolicy() *BatchReadPolicy {
 func (brp *BatchReadPolicy) toWritePolicy(bp *BatchPolicy) *WritePolicy {
 	wp := bp.toWritePolicy()
 
-	if brp.FilterExpression != nil {
-		wp.FilterExpression = brp.FilterExpression
+	if brp != nil {
+		if brp.FilterExpression != nil {
+			wp.FilterExpression = brp.FilterExpression
+		}
+
+		wp.ReadModeAP = brp.ReadModeAP
+		wp.ReadModeSC = brp.ReadModeSC
+		wp.ReadTouchTTLPercent = brp.ReadTouchTTLPercent
 	}
-
-	wp.ReadModeAP = brp.ReadModeAP
-	wp.ReadModeSC = brp.ReadModeSC
-	wp.ReadTouchTTLPercent = brp.ReadTouchTTLPercent
-
 	return wp
 }

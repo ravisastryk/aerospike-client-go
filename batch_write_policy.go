@@ -86,16 +86,18 @@ func NewBatchWritePolicy() *BatchWritePolicy {
 func (bwp *BatchWritePolicy) toWritePolicy(bp *BatchPolicy) *WritePolicy {
 	wp := bp.toWritePolicy()
 
-	if bwp.FilterExpression != nil {
-		wp.FilterExpression = bwp.FilterExpression
+	if bwp != nil {
+		if bwp.FilterExpression != nil {
+			wp.FilterExpression = bwp.FilterExpression
+		}
+		wp.RecordExistsAction = bwp.RecordExistsAction
+		wp.CommitLevel = bwp.CommitLevel
+		wp.GenerationPolicy = bwp.GenerationPolicy
+		wp.Generation = bwp.Generation
+		wp.Expiration = bwp.Expiration
+		wp.DurableDelete = bwp.DurableDelete
+		wp.SendKey = bwp.SendKey
 	}
-	wp.RecordExistsAction = bwp.RecordExistsAction
-	wp.CommitLevel = bwp.CommitLevel
-	wp.GenerationPolicy = bwp.GenerationPolicy
-	wp.Generation = bwp.Generation
-	wp.Expiration = bwp.Expiration
-	wp.DurableDelete = bwp.DurableDelete
-	wp.SendKey = bwp.SendKey
 
 	return wp
 }

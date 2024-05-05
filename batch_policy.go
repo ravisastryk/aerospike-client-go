@@ -119,7 +119,9 @@ func NewWriteBatchPolicy() *BatchPolicy {
 
 func (p *BatchPolicy) toWritePolicy() *WritePolicy {
 	wp := NewWritePolicy(0, 0)
-	wp.BasePolicy = p.BasePolicy
+	if p != nil {
+		wp.BasePolicy = p.BasePolicy
+	}
 	return wp
 }
 
