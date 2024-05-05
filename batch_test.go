@@ -722,13 +722,13 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.RECORD_TOO_BIG))
 					gm.Expect(br.Err.Matches(types.RECORD_TOO_BIG)).To(gm.Equal(true))
-					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
+					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(false))
 
 					br = batchRecords[1].BatchRec()
 					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.RECORD_TOO_BIG))
 					gm.Expect(br.Err.Matches(types.RECORD_TOO_BIG)).To(gm.Equal(true))
-					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
+					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(false))
 
 					br = batchRecords[2].BatchRec()
 					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
