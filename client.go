@@ -19,7 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -789,7 +789,7 @@ func (clnt *Client) ScanNode(apolicy *ScanPolicy, node *Node, namespace string, 
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *Client) RegisterUDFFromFile(policy *WritePolicy, clientPath string, serverPath string, language Language) (*RegisterTask, Error) {
 	policy = clnt.getUsableWritePolicy(policy)
-	udfBody, err := ioutil.ReadFile(clientPath)
+	udfBody, err := os.ReadFile(clientPath)
 	if err != nil {
 		return nil, newCommonError(err)
 	}

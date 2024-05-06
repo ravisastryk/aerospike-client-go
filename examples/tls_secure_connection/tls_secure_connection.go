@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -102,7 +101,7 @@ func readCertificates(serverCertDir string, clientCertFile, clientKeyFile string
 		// Adding server certificates to the pool.
 		// These certificates are used to verify the identity of the server nodes to the client.
 		for _, caFile := range serverCerts {
-			caCert, err := ioutil.ReadFile(caFile)
+			caCert, err := os.ReadFile(caFile)
 			if err != nil {
 				log.Fatalf("FAILED: Adding server certificate %s to the pool failed: %s", caFile, err)
 			}
