@@ -204,6 +204,32 @@ var _ = gg.Describe("Aerospike", func() {
 				gm.Expect(exists).To(gm.BeTrue())
 			})
 
+			gg.It("must successfully execute a BatchRead with empty ops", func() {
+				var batchRecords []as.BatchRecordIfc
+				for i := 0; i < 5; i++ {
+					key, _ := as.NewKey(ns, set, i)
+					client.PutBins(nil, key, as.NewBin("i", i), as.NewBin("j", 5-i))
+
+					if i == 0 {
+						batchRead := as.NewBatchRead(nil, key, nil)
+						batchRead.ReadAllBins = true
+						batchRecords = append(batchRecords,
+							batchRead,
+						)
+					}
+				}
+
+				err := client.BatchOperate(nil, batchRecords)
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+
+				op1 := batchRecords[0].BatchRec()
+				gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
+				gm.Expect(op1.BatchRec().ResultCode).To(gm.Equal(types.OK))
+				gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"i": 0, "j": 5}))
+				gm.Expect(op1.BatchRec().InDoubt).To(gm.BeFalse())
+
+			})
+
 			gg.It("must successfully execute a delete op", func() {
 				if *dbaas {
 					gg.Skip("Not supported in DBAAS environment")

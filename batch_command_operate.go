@@ -232,17 +232,17 @@ func (cmd *batchCommandOperate) executeSingle(client *Client) Error {
 
 		switch br := br.(type) {
 		case *BatchRead:
-			var ops []*Operation
+			ops := br.Ops
 			if br.headerOnly() {
-				ops = []*Operation{GetHeaderOp()}
+				ops = append(ops, GetHeaderOp())
 			} else if len(br.BinNames) > 0 {
 				for i := range br.BinNames {
 					ops = append(ops, GetBinOp(br.BinNames[i]))
 				}
-			} else {
-				ops = br.Ops
+			} else if len(ops) == 0 {
+				ops = append(ops, GetOp())
 			}
-			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, br.Ops...)
+			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, ops...)
 		case *BatchWrite:
 			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, br.Ops...)
 			br.setRecord(res)
