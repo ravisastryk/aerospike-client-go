@@ -38,6 +38,8 @@ We suggest complete testing of your application before using it in production.
   - [CLIENT-2891] Export various batch operation struct fields. Resolves #247.
   - Remove dependency on `xrand` sub-package since the native API is fast enough.
   - Linter Clean up.
+  - `WritePolicy.SendKey` documentation, thanks to [Rishabh Sairawat](https://github.com/rishabhsairawat)
+  - Replaced the deprecated `ioutil.ReadFile` with `os.ReadFile`. PR #430, thanks to [Swarit Pandey](https://github.com/swarit-pandey)
 
 - **Fixes**
   - [CLIENT-2905] Fix inconsistency of handling in-doubt flag in errors.
