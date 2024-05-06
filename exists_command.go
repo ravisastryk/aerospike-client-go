@@ -137,7 +137,7 @@ func (cmd *existsCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	res, gerr := client.Exists(ctx, &req)
 	if gerr != nil {
-		return newGrpcError(gerr, gerr.Error())
+		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
 	}
 
 	cmd.commandWasSent = true

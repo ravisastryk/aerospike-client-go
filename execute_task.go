@@ -184,7 +184,7 @@ func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
 
 	streamRes, gerr := client.BackgroundTaskStatus(ctx, &req)
 	if gerr != nil {
-		return false, newGrpcError(gerr, gerr.Error())
+		return false, newGrpcError(true, gerr, gerr.Error())
 	}
 
 	for {
@@ -192,7 +192,7 @@ func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
 
 		res, gerr := streamRes.Recv()
 		if gerr != nil {
-			e := newGrpcError(gerr)
+			e := newGrpcError(true, gerr)
 			return false, e
 		}
 

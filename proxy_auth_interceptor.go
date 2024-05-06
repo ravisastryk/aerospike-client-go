@@ -133,35 +133,35 @@ func (interceptor *authInterceptor) login() Error {
 
 	res, gerr := client.Get(ctx, &req)
 	if gerr != nil {
-		return newGrpcError(gerr, gerr.Error())
+		return newGrpcError(false, gerr, gerr.Error())
 	}
 
 	claims := strings.Split(res.GetToken(), ".")
 	decClaims, gerr := base64.RawURLEncoding.DecodeString(claims[1])
 	if err != nil {
-		return newGrpcError(err, "Invalid token encoding. Expected base64.")
+		return newGrpcError(false, err, "Invalid token encoding. Expected base64.")
 	}
 
 	tokenMap := make(map[string]interface{}, 8)
 	gerr = json.Unmarshal(decClaims, &tokenMap)
 	if err != nil {
-		return newGrpcError(err, "Invalid token encoding. Expected json.")
+		return newGrpcError(false, err, "Invalid token encoding. Expected json.")
 	}
 
 	expiryToken, ok := tokenMap["exp"].(float64)
 	if !ok {
-		return newGrpcError(err, "Invalid expiry value. Expected float64.")
+		return newGrpcError(false, err, "Invalid expiry value. Expected float64.")
 	}
 
 	iat, ok := tokenMap["iat"].(float64)
 	if !ok {
-		return newGrpcError(err, "Invalid iat value. Expected float64.")
+		return newGrpcError(false, err, "Invalid iat value. Expected float64.")
 
 	}
 
 	ttl := time.Duration(expiryToken-iat) * time.Second
 	if ttl <= 0 {
-		return newGrpcError(err, "Invalid token values. token 'iat' > 'exp'")
+		return newGrpcError(false, err, "Invalid token values. token 'iat' > 'exp'")
 	}
 
 	// Set expiry based on local clock.

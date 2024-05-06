@@ -322,7 +322,7 @@ func (clnt *ProxyClient) ServerVersion(policy *InfoPolicy) (string, Error) {
 
 	res, gerr := client.Get(ctx, &req)
 	if gerr != nil {
-		return "", newGrpcError(gerr, gerr.Error())
+		return "", newGrpcError(false, gerr, gerr.Error())
 	}
 
 	clnt.returnGrpcConnToPool(conn)

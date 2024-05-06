@@ -298,7 +298,7 @@ func (cmd *readCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	res, gerr := client.Read(ctx, &req)
 	if gerr != nil {
-		return newGrpcError(gerr, gerr.Error())
+		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
 	}
 
 	cmd.commandWasSent = true

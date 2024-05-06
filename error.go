@@ -146,18 +146,18 @@ func newCommonError(e error, messages ...string) Error {
 	return ne
 }
 
-func newGrpcError(e error, messages ...string) Error {
+func newGrpcError(isWrite bool, e error, messages ...string) Error {
 	if ae, ok := e.(Error); ok && ae.resultCode() == types.GRPC_ERROR {
 		return ae
 	}
 
 	// convert error to Aerospike errors
 	if e == context.DeadlineExceeded {
-		return ErrNetTimeout.err()
+		return ErrNetTimeout.err().markInDoubt(isWrite)
 	} else if e == grpc.ErrClientConnTimeout {
-		return ErrNetTimeout.err()
+		return ErrNetTimeout.err().markInDoubt(isWrite)
 	} else if e == grpc.ErrServerStopped {
-		return ErrServerNotAvailable.err()
+		return ErrServerNotAvailable.err().markInDoubt(isWrite)
 	}
 
 	// try to convert the error
@@ -172,13 +172,13 @@ func newGrpcError(e error, messages ...string) Error {
 	case codes.OK:
 		return nil
 	case codes.Canceled:
-		return ErrNetTimeout.err()
+		return ErrNetTimeout.err().markInDoubt(isWrite)
 	case codes.InvalidArgument:
 		return newError(types.PARAMETER_ERROR, messages...)
 	case codes.DeadlineExceeded:
-		return ErrNetTimeout.err()
+		return ErrNetTimeout.err().markInDoubt(isWrite)
 	case codes.NotFound:
-		return newError(types.SERVER_NOT_AVAILABLE, messages...)
+		return newError(types.SERVER_NOT_AVAILABLE, messages...).markInDoubt(isWrite)
 	case codes.PermissionDenied:
 		return newError(types.FAIL_FORBIDDEN, messages...)
 	case codes.ResourceExhausted:
@@ -186,17 +186,17 @@ func newGrpcError(e error, messages ...string) Error {
 	case codes.FailedPrecondition:
 		return newError(types.PARAMETER_ERROR, messages...)
 	case codes.Aborted:
-		return newError(types.SERVER_ERROR)
+		return newError(types.SERVER_ERROR).markInDoubt(isWrite)
 	case codes.OutOfRange:
 		return newError(types.PARAMETER_ERROR, messages...)
 	case codes.Unimplemented:
 		return newError(types.SERVER_NOT_AVAILABLE, messages...)
 	case codes.Internal:
-		return newError(types.SERVER_ERROR, messages...)
+		return newError(types.SERVER_ERROR, messages...).markInDoubt(isWrite)
 	case codes.Unavailable:
-		return newError(types.SERVER_NOT_AVAILABLE, messages...)
+		return newError(types.SERVER_NOT_AVAILABLE, messages...).markInDoubt(isWrite)
 	case codes.DataLoss:
-		return ErrNetwork.err()
+		return ErrNetwork.err().markInDoubt(isWrite)
 	case codes.Unauthenticated:
 		return newError(types.NOT_AUTHENTICATED, messages...)
 
@@ -204,7 +204,7 @@ func newGrpcError(e error, messages ...string) Error {
 	case codes.Unknown:
 	}
 
-	ne := newError(types.GRPC_ERROR, messages...)
+	ne := newError(types.GRPC_ERROR, messages...).markInDoubt(isWrite)
 	ne.wrap(e)
 	return ne
 }

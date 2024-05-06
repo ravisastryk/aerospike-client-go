@@ -109,7 +109,7 @@ func (cmd *grpcQueryPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	streamRes, gerr := client.Query(ctx, &req)
 	if gerr != nil {
-		return newGrpcError(gerr, gerr.Error())
+		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
 	}
 
 	cmd.commandWasSent = true
@@ -121,7 +121,7 @@ func (cmd *grpcQueryPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 		res, gerr := streamRes.Recv()
 		if gerr != nil {
-			e := newGrpcError(gerr)
+			e := newGrpcError(!cmd.isRead(), gerr)
 			cmd.recordset.sendError(e)
 			return nil, e
 		}

@@ -129,7 +129,7 @@ func (cmd *serverCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	streamRes, gerr := client.BackgroundExecute(ctx, &req)
 	if gerr != nil {
-		return newGrpcError(gerr, gerr.Error())
+		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
 	}
 
 	cmd.commandWasSent = true
@@ -137,7 +137,7 @@ func (cmd *serverCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 	readCallback := func() ([]byte, Error) {
 		res, gerr := streamRes.Recv()
 		if gerr != nil {
-			e := newGrpcError(gerr)
+			e := newGrpcError(!cmd.isRead(), gerr)
 			return nil, e
 		}
 
