@@ -65,7 +65,7 @@ func (cmd *grpcScanPartitionCommand) writeBuffer(ifc command) Error {
 }
 
 func (cmd *grpcScanPartitionCommand) shouldRetry(e Error) bool {
-	panic("UNREACHABLE")
+	panic(unreachable)
 }
 
 func (cmd *grpcScanPartitionCommand) transactionType() transactionType {
@@ -73,7 +73,7 @@ func (cmd *grpcScanPartitionCommand) transactionType() transactionType {
 }
 
 func (cmd *grpcScanPartitionCommand) Execute() Error {
-	panic("UNREACHABLE")
+	panic(unreachable)
 }
 
 func (cmd *grpcScanPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {

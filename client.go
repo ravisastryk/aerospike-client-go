@@ -29,6 +29,8 @@ import (
 	"github.com/aerospike/aerospike-client-go/v7/types"
 )
 
+const unreachable = "UNREACHABLE"
+
 // Client encapsulates an Aerospike cluster.
 // All database operations are available against this object.
 type Client struct {

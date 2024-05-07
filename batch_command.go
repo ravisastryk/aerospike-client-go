@@ -108,13 +108,13 @@ func (cmd *batchCommand) filteredOut() int {
 }
 
 func (cmd *batchCommand) generateBatchNodes(cluster *Cluster) ([]*batchNode, Error) {
-	panic("Unreachable")
+	panic(unreachable)
 }
 
 func (cmd *batchCommand) cloneBatchCommand(batch *batchNode) batcher {
-	panic("Unreachable")
+	panic(unreachable)
 }
 
 func (cmd *batchCommand) writeBuffer(ifc command) Error {
-	panic("Unreachable")
+	panic(unreachable)
 }

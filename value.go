@@ -1167,7 +1167,7 @@ func (vl *RawBlobValue) write(cmd BufferEx) (int, Error) {
 }
 
 func (vl *RawBlobValue) pack(cmd BufferEx) (int, Error) {
-	panic("UNREACHABLE")
+	panic(unreachable)
 }
 
 // GetType returns wire protocol value type.

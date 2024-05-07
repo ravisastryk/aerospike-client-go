@@ -30,6 +30,8 @@ import (
 	"github.com/aerospike/aerospike-client-go/v7/types"
 )
 
+const notSupportedInProxyClient = "NOT SUPPORTED IN THE PROXY CLIENT"
+
 // ProxyClient encapsulates an Aerospike cluster.
 // All database operations are available against this object.
 type ProxyClient struct {
@@ -297,12 +299,12 @@ func (clnt *ProxyClient) IsConnected() bool {
 
 // GetNodes returns an array of active server nodes in the cluster.
 func (clnt *ProxyClient) GetNodes() []*Node {
-	panic("NOT_SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // GetNodeNames returns a list of active server node names in the cluster.
 func (clnt *ProxyClient) GetNodeNames() []string {
-	panic("NOT_SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // ServerVersion will return the version of the proxy server.
@@ -800,13 +802,13 @@ func (clnt *ProxyClient) ScanAll(apolicy *ScanPolicy, namespace string, setName 
 // scanNodePartitions reads all records in specified namespace and set for one node only.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) scanNodePartitions(apolicy *ScanPolicy, node *Node, namespace string, setName string, binNames ...string) (*Recordset, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // ScanNode reads all records in specified namespace and set for one node only.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) ScanNode(apolicy *ScanPolicy, node *Node, namespace string, setName string, binNames ...string) (*Recordset, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 //---------------------------------------------------------------
@@ -822,7 +824,7 @@ func (clnt *ProxyClient) ScanNode(apolicy *ScanPolicy, node *Node, namespace str
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) RegisterUDFFromFile(policy *WritePolicy, clientPath string, serverPath string, language Language) (*RegisterTask, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // RegisterUDF registers a package containing user defined functions with server.
@@ -833,7 +835,7 @@ func (clnt *ProxyClient) RegisterUDFFromFile(policy *WritePolicy, clientPath str
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) RegisterUDF(policy *WritePolicy, udfBody []byte, serverPath string, language Language) (*RegisterTask, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // RemoveUDF removes a package containing user defined functions in the server.
@@ -844,14 +846,14 @@ func (clnt *ProxyClient) RegisterUDF(policy *WritePolicy, udfBody []byte, server
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) RemoveUDF(policy *WritePolicy, udfName string) (*RemoveTask, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // ListUDF lists all packages containing user defined functions in the server.
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) ListUDF(policy *BasePolicy) ([]*UDF, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // Execute executes a user defined function on server and return results.
@@ -952,14 +954,14 @@ func (clnt *ProxyClient) ExecuteUDFNode(policy *QueryPolicy,
 	functionName string,
 	functionArgs ...Value,
 ) (*ExecuteTask, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // SetXDRFilter sets XDR filter for given datacenter name and namespace. The expression filter indicates
 // which records XDR should ship to the datacenter.
 // Pass nil as filter to remove the currentl filter on the server.
 func (clnt *ProxyClient) SetXDRFilter(policy *InfoPolicy, datacenter string, namespace string, filter *Expression) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 //--------------------------------------------------------
@@ -1002,11 +1004,11 @@ func (clnt *ProxyClient) Query(policy *QueryPolicy, statement *Statement) (*Reco
 // This method is only supported by Aerospike 3+ servers.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) QueryNode(policy *QueryPolicy, node *Node, statement *Statement) (*Recordset, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 func (clnt *ProxyClient) queryNodePartitions(policy *QueryPolicy, node *Node, statement *Statement) (*Recordset, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 //--------------------------------------------------------
@@ -1027,7 +1029,7 @@ func (clnt *ProxyClient) CreateIndex(
 	binName string,
 	indexType IndexType,
 ) (*IndexTask, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // CreateComplexIndex creates a secondary index, with the ability to put indexes
@@ -1047,7 +1049,7 @@ func (clnt *ProxyClient) CreateComplexIndex(
 	indexCollectionType IndexCollectionType,
 	ctx ...*CDTContext,
 ) (*IndexTask, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // DropIndex deletes a secondary index. It will block until index is dropped on all nodes.
@@ -1059,7 +1061,7 @@ func (clnt *ProxyClient) DropIndex(
 	setName string,
 	indexName string,
 ) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // Truncate removes records in specified namespace/set efficiently.  This method is many orders of magnitude
@@ -1069,7 +1071,7 @@ func (clnt *ProxyClient) DropIndex(
 // greater than the truncate cutoff (set at the time of truncate call).
 // For more information, See https://www.aerospike.com/docs/reference/info#truncate
 func (clnt *ProxyClient) Truncate(policy *InfoPolicy, namespace, set string, beforeLastUpdate *time.Time) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 //-------------------------------------------------------
@@ -1079,81 +1081,81 @@ func (clnt *ProxyClient) Truncate(policy *InfoPolicy, namespace, set string, bef
 // CreateUser creates a new user with password and roles. Clear-text password will be hashed using bcrypt
 // before sending to server.
 func (clnt *ProxyClient) CreateUser(policy *AdminPolicy, user string, password string, roles []string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // DropUser removes a user from the cluster.
 func (clnt *ProxyClient) DropUser(policy *AdminPolicy, user string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // ChangePassword changes a user's password. Clear-text password will be hashed using bcrypt before sending to server.
 func (clnt *ProxyClient) ChangePassword(policy *AdminPolicy, user string, password string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // GrantRoles adds roles to user's list of roles.
 func (clnt *ProxyClient) GrantRoles(policy *AdminPolicy, user string, roles []string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // RevokeRoles removes roles from user's list of roles.
 func (clnt *ProxyClient) RevokeRoles(policy *AdminPolicy, user string, roles []string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // QueryUser retrieves roles for a given user.
 func (clnt *ProxyClient) QueryUser(policy *AdminPolicy, user string) (*UserRoles, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // QueryUsers retrieves all users and their roles.
 func (clnt *ProxyClient) QueryUsers(policy *AdminPolicy) ([]*UserRoles, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // QueryRole retrieves privileges for a given role.
 func (clnt *ProxyClient) QueryRole(policy *AdminPolicy, role string) (*Role, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // QueryRoles retrieves all roles and their privileges.
 func (clnt *ProxyClient) QueryRoles(policy *AdminPolicy) ([]*Role, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // CreateRole creates a user-defined role.
 // Quotas require server security configuration "enable-quotas" to be set to true.
 // Pass 0 for quota values for no limit.
 func (clnt *ProxyClient) CreateRole(policy *AdminPolicy, roleName string, privileges []Privilege, whitelist []string, readQuota, writeQuota uint32) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // DropRole removes a user-defined role.
 func (clnt *ProxyClient) DropRole(policy *AdminPolicy, roleName string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // GrantPrivileges grant privileges to a user-defined role.
 func (clnt *ProxyClient) GrantPrivileges(policy *AdminPolicy, roleName string, privileges []Privilege) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // RevokePrivileges revokes privileges from a user-defined role.
 func (clnt *ProxyClient) RevokePrivileges(policy *AdminPolicy, roleName string, privileges []Privilege) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // SetWhitelist sets IP address whitelist for a role. If whitelist is nil or empty, it removes existing whitelist from role.
 func (clnt *ProxyClient) SetWhitelist(policy *AdminPolicy, roleName string, whitelist []string) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // SetQuotas sets maximum reads/writes per second limits for a role.  If a quota is zero, the limit is removed.
 // Quotas require server security configuration "enable-quotas" to be set to true.
 // Pass 0 for quota values for no limit.
 func (clnt *ProxyClient) SetQuotas(policy *AdminPolicy, roleName string, readQuota, writeQuota uint32) Error {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 //-------------------------------------------------------
@@ -1162,7 +1164,7 @@ func (clnt *ProxyClient) SetQuotas(policy *AdminPolicy, roleName string, readQuo
 
 // Cluster exposes the cluster object to the user
 func (clnt *ProxyClient) Cluster() *Cluster {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // String implements the Stringer interface for Grpcclient
@@ -1172,7 +1174,7 @@ func (clnt *ProxyClient) String() string {
 
 // Stats returns internal statistics regarding the inner state of the Grpcclient and the cluster.
 func (clnt *ProxyClient) Stats() (map[string]interface{}, Error) {
-	panic("NOT SUPPORTED")
+	panic(notSupportedInProxyClient)
 }
 
 // WarmUp fills the connection pool with connections for all nodes.

@@ -166,5 +166,5 @@ func (br *BatchRecord) getType() batchRecordType {
 
 // Return wire protocol size. For internal use only.
 func (br *BatchRecord) size(parentPolicy *BasePolicy) (int, Error) {
-	panic("UNREACHABLE")
+	panic(unreachable)
 }
