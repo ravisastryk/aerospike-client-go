@@ -178,7 +178,9 @@ func (cmd *batchCommandUDF) isRead() bool {
 
 func (cmd *batchCommandUDF) executeSingle(client *Client) Error {
 	for i, key := range cmd.keys {
-		res, err := client.execute(cmd.batchUDFPolicy.toWritePolicy(cmd.policy), key, cmd.packageName, cmd.functionName, cmd.args...)
+		policy := cmd.batchUDFPolicy.toWritePolicy(cmd.policy)
+		policy.RespondPerEachOp = true
+		res, err := client.execute(policy, key, cmd.packageName, cmd.functionName, cmd.args...)
 		cmd.records[i].setRecord(res)
 		if err != nil {
 			cmd.records[i].setRawError(err)

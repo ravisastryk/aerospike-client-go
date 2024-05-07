@@ -112,6 +112,27 @@ var _ = gg.Describe("Aerospike", func() {
 				}
 			})
 
+			gg.It("must return the result with same ordering for s single key", func() {
+				keys := []*as.Key{ekeys[0]}
+				res, err := client.BatchDelete(bpolicy, bdpolicy, keys)
+
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+				gm.Expect(res).NotTo(gm.BeNil())
+				gm.Expect(len(res)).To(gm.Equal(len(keys)))
+				for _, br := range res {
+					gm.Expect(br.ResultCode).To(gm.Equal(types.OK))
+					gm.Expect(br.Record.Bins).To(gm.Equal(as.BinMap{}))
+				}
+
+				// true case
+				exists, err = client.BatchExists(bpolicy, keys)
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+				gm.Expect(len(exists)).To(gm.Equal(len(keys)))
+				for _, keyExists := range exists {
+					gm.Expect(keyExists).To(gm.BeFalse())
+				}
+			})
+
 			gg.It("must return prioritize BatchDeletePolicy over BatchPolicy", func() {
 				set := randString(10)
 
@@ -550,9 +571,44 @@ var _ = gg.Describe("Aerospike", func() {
 				}
 			})
 
-			gg.It("must return the results when one operation is against an invalid namespace", func() {
-				// gg.Skip("This rest of this test requires more in depth analysis with the QA team")
+			gg.It("must return the results for single BatchUDF vs multiple", func() {
+				luaCode := `-- Create a record
+				function rec_create(rec, bins)
+				    return bins
+				end`
 
+				removeUDF("test_ops.lua")
+				registerUDF(luaCode, "test_ops.lua")
+
+				for _, keyCount := range []int{10, 1} {
+					nativeClient.Truncate(nil, ns, set, nil)
+					batchRecords := []as.BatchRecordIfc{}
+
+					for k := 0; k < keyCount; k++ {
+						key, _ := as.NewKey(ns, set, k)
+						args := make(map[interface{}]interface{})
+						args["bin1_str"] = "a"
+						batchRecords = append(batchRecords, as.NewBatchUDF(
+							nil,
+							key,
+							"test_ops",
+							"rec_create",
+							as.NewMapValue(args),
+						))
+					}
+					bp := as.NewBatchPolicy()
+					err := client.BatchOperate(bp, batchRecords)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					for i := 0; i < keyCount; i++ {
+						gm.Expect(batchRecords[i].BatchRec().Err).To(gm.BeNil())
+						gm.Expect(batchRecords[i].BatchRec().ResultCode).To(gm.Equal(types.OK))
+						gm.Expect(batchRecords[i].BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"SUCCESS": map[interface{}]interface{}{"bin1_str": "a"}}))
+					}
+				}
+			})
+
+			gg.It("must return the results when one operation is against an invalid namespace", func() {
 				luaCode := `-- Create a record
 				function rec_create(rec, bins)
 				    if bins ~= nil then
@@ -765,43 +821,42 @@ var _ = gg.Describe("Aerospike", func() {
 			})
 
 			gg.It("must return the result with same ordering", func() {
-				const keyCount = 50
-				keys := []*as.Key{}
-
 				registerUDF(udfBody, "udf1.lua")
+				for _, keyCount := range []int{50, 1} {
+					keys := []*as.Key{}
+					for i := 0; i < keyCount; i++ {
+						bin := as.NewBin("bin1", i*6)
 
-				for i := 0; i < keyCount; i++ {
-					bin := as.NewBin("bin1", i*6)
+						key, err := as.NewKey(ns, set, randString(50))
+						gm.Expect(err).ToNot(gm.HaveOccurred())
 
-					key, err := as.NewKey(ns, set, randString(50))
+						err = client.PutBins(wpolicy, key, bin)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+
+						// make sure they exists in the DB
+						exists, err := client.Exists(rpolicy, key)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						gm.Expect(exists).To(gm.Equal(true))
+
+						keys = append(keys, key)
+					}
+
+					brecs, err := client.BatchExecute(bpolicy, nil, keys, "udf1", "testFunc1", as.NewValue(2))
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 
-					err = client.PutBins(wpolicy, key, bin)
+					for _, rec := range brecs {
+						gm.Expect(rec.Err).ToNot(gm.HaveOccurred())
+						gm.Expect(rec.ResultCode).To(gm.Equal(types.OK))
+						gm.Expect(rec.InDoubt).To(gm.BeFalse())
+						gm.Expect(rec.Record.Bins["SUCCESS"]).To(gm.Equal(map[interface{}]interface{}{"status": "OK"}))
+					}
+
+					recs, err := client.BatchGet(nil, keys)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
-
-					// make sure they exists in the DB
-					exists, err := client.Exists(rpolicy, key)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					gm.Expect(exists).To(gm.Equal(true))
-
-					keys = append(keys, key)
-				}
-
-				brecs, err := client.BatchExecute(bpolicy, nil, keys, "udf1", "testFunc1", as.NewValue(2))
-				gm.Expect(err).ToNot(gm.HaveOccurred())
-
-				for _, rec := range brecs {
-					gm.Expect(rec.Err).ToNot(gm.HaveOccurred())
-					gm.Expect(rec.ResultCode).To(gm.Equal(types.OK))
-					gm.Expect(rec.InDoubt).To(gm.BeFalse())
-					gm.Expect(rec.Record.Bins["SUCCESS"]).To(gm.Equal(map[interface{}]interface{}{"status": "OK"}))
-				}
-
-				recs, err := client.BatchGet(nil, keys)
-				gm.Expect(err).ToNot(gm.HaveOccurred())
-				gm.Expect(len(recs)).To(gm.Equal(len(keys)))
-				for i, rec := range recs {
-					gm.Expect(rec.Bins["bin2"].(int)).To(gm.Equal(i * 3))
+					gm.Expect(len(recs)).To(gm.Equal(len(keys)))
+					for i, rec := range recs {
+						gm.Expect(rec.Bins["bin2"].(int)).To(gm.Equal(i * 3))
+					}
 				}
 			})
 		})

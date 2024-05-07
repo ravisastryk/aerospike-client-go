@@ -1019,7 +1019,7 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(err).To(gm.HaveOccurred())
 				})
 
-				gg.It("XXXshould create a valid Sorted CDT Map and then Get Correct Values back in both map and []MapPair fields", func() {
+				gg.It("should create a valid Sorted CDT Map and then Get Correct Values back in both map and []MapPair fields", func() {
 
 					cdtBinName := "orderedMap"
 

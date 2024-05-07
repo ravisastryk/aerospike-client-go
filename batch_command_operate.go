@@ -244,13 +244,19 @@ func (cmd *batchCommandOperate) executeSingle(client *Client) Error {
 			}
 			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, ops...)
 		case *BatchWrite:
-			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, br.Ops...)
+			policy := br.Policy.toWritePolicy(cmd.policy)
+			policy.RespondPerEachOp = true
+			res, err = client.Operate(policy, br.Key, br.Ops...)
 			br.setRecord(res)
 		case *BatchDelete:
-			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, DeleteOp())
+			policy := br.Policy.toWritePolicy(cmd.policy)
+			policy.RespondPerEachOp = true
+			res, err = client.Operate(policy, br.Key, DeleteOp())
 			br.setRecord(res)
 		case *BatchUDF:
-			res, err = client.execute(br.Policy.toWritePolicy(cmd.policy), br.Key, br.PackageName, br.FunctionName, br.FunctionArgs...)
+			policy := br.Policy.toWritePolicy(cmd.policy)
+			policy.RespondPerEachOp = true
+			res, err = client.execute(policy, br.Key, br.PackageName, br.FunctionName, br.FunctionArgs...)
 		}
 
 		br.setRecord(res)
