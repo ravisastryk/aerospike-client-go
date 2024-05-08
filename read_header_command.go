@@ -104,8 +104,11 @@ func (cmd *readHeaderCommand) Execute() Error {
 	return cmd.execute(cmd)
 }
 
+func (cmd *readHeaderCommand) transactionType() transactionType {
+	return ttGetHeader
+}
+
 func (cmd *readHeaderCommand) ExecuteGRPC(clnt *ProxyClient) Error {
-	cmd.dataBuffer = bufPool.Get().([]byte)
 	defer cmd.grpcPutBufferBack()
 
 	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())
@@ -131,18 +134,18 @@ func (cmd *readHeaderCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	res, gerr := client.GetHeader(ctx, &req)
 	if gerr != nil {
-		return newGrpcError(gerr, gerr.Error())
+		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
 	}
 
 	cmd.commandWasSent = true
 
 	defer clnt.returnGrpcConnToPool(conn)
 
-	if res.Status != 0 {
+	if res.GetStatus() != 0 {
 		return newGrpcStatusError(res)
 	}
 
-	cmd.conn = newGrpcFakeConnection(res.Payload, nil)
+	cmd.conn = newGrpcFakeConnection(res.GetPayload(), nil)
 	err = cmd.parseResult(cmd, cmd.conn)
 	if err != nil {
 		return err

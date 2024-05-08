@@ -112,6 +112,27 @@ var _ = gg.Describe("Aerospike", func() {
 				}
 			})
 
+			gg.It("must return the result with same ordering for s single key", func() {
+				keys := []*as.Key{ekeys[0]}
+				res, err := client.BatchDelete(bpolicy, bdpolicy, keys)
+
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+				gm.Expect(res).NotTo(gm.BeNil())
+				gm.Expect(len(res)).To(gm.Equal(len(keys)))
+				for _, br := range res {
+					gm.Expect(br.ResultCode).To(gm.Equal(types.OK))
+					gm.Expect(br.Record.Bins).To(gm.Equal(as.BinMap{}))
+				}
+
+				// true case
+				exists, err = client.BatchExists(bpolicy, keys)
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+				gm.Expect(len(exists)).To(gm.Equal(len(keys)))
+				for _, keyExists := range exists {
+					gm.Expect(keyExists).To(gm.BeFalse())
+				}
+			})
+
 			gg.It("must return prioritize BatchDeletePolicy over BatchPolicy", func() {
 				set := randString(10)
 
@@ -176,6 +197,12 @@ var _ = gg.Describe("Aerospike", func() {
 				err := client.BatchOperate(bpolicy, brecs)
 				gm.Expect(err).ToNot(gm.HaveOccurred())
 
+				// Since the ops will run out of order, there is always a chance that
+				// the read operation will run first and return a KEY_NOT_FOUND error.
+				// As a result we run the operate command twice.
+				err = client.BatchOperate(bpolicy, brecs)
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+
 				gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
 				gm.Expect(op1.BatchRec().ResultCode).To(gm.Equal(types.OK))
 				gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin1": nil, "bin2": nil}))
@@ -204,6 +231,32 @@ var _ = gg.Describe("Aerospike", func() {
 				gm.Expect(exists).To(gm.BeTrue())
 			})
 
+			gg.It("must successfully execute a BatchRead with empty ops", func() {
+				var batchRecords []as.BatchRecordIfc
+				for i := 0; i < 5; i++ {
+					key, _ := as.NewKey(ns, set, i)
+					client.PutBins(nil, key, as.NewBin("i", i), as.NewBin("j", 5-i))
+
+					if i == 0 {
+						batchRead := as.NewBatchRead(nil, key, nil)
+						batchRead.ReadAllBins = true
+						batchRecords = append(batchRecords,
+							batchRead,
+						)
+					}
+				}
+
+				err := client.BatchOperate(nil, batchRecords)
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+
+				op1 := batchRecords[0].BatchRec()
+				gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
+				gm.Expect(op1.BatchRec().ResultCode).To(gm.Equal(types.OK))
+				gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"i": 0, "j": 5}))
+				gm.Expect(op1.BatchRec().InDoubt).To(gm.BeFalse())
+
+			})
+
 			gg.It("must successfully execute a delete op", func() {
 				if *dbaas {
 					gg.Skip("Not supported in DBAAS environment")
@@ -223,7 +276,7 @@ var _ = gg.Describe("Aerospike", func() {
 					op2 := as.NewBatchDelete(bdPolicy, key1)
 					op3 := as.NewBatchRead(nil, key1, []string{"bin2"})
 
-					brecs := []as.BatchRecordIfc{op1, op2, op3}
+					brecs := []as.BatchRecordIfc{op1, op3}
 					err := client.BatchOperate(bpolicy, brecs)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 
@@ -232,18 +285,29 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin1": nil, "bin2": nil}))
 					gm.Expect(op1.BatchRec().InDoubt).To(gm.BeFalse())
 
+					brecs = []as.BatchRecordIfc{op1, op3}
+					err = client.BatchOperate(bpolicy, brecs)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					// There is no guarantee for the order of execution for different commands
+					gm.Expect(op3.BatchRec().Err).ToNot(gm.HaveOccurred())
+					gm.Expect(op3.BatchRec().Record).ToNot(gm.BeNil())
+					gm.Expect(op3.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin2": "b"}))
+
+					exists, err := client.Exists(nil, key1)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+					gm.Expect(exists).To(gm.BeTrue())
+
+					brecs = []as.BatchRecordIfc{op2}
+					err = client.BatchOperate(bpolicy, brecs)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
 					gm.Expect(op2.BatchRec().Err).ToNot(gm.HaveOccurred())
 					gm.Expect(op2.BatchRec().ResultCode).To(gm.Equal(types.OK))
 					gm.Expect(op2.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{}))
 					gm.Expect(op2.BatchRec().InDoubt).To(gm.BeFalse())
 
-					// There is guarantee for the order of execution for different commands
-					// gm.Expect(op3.BatchRec().Err).To(gm.HaveOccurred())
-					// gm.Expect(op3.BatchRec().ResultCode).To(gm.Equal(types.KEY_NOT_FOUND_ERROR))
-					// gm.Expect(op3.BatchRec().Record).To(gm.BeNil())
-					// gm.Expect(op3.BatchRec().InDoubt).To(gm.BeFalse())
-
-					exists, err := client.Exists(nil, key1)
+					exists, err = client.Exists(nil, key1)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 					gm.Expect(exists).To(gm.BeFalse())
 				}
@@ -512,9 +576,44 @@ var _ = gg.Describe("Aerospike", func() {
 				}
 			})
 
-			gg.It("must return the results when one operation is against an invalid namespace", func() {
-				// gg.Skip("This rest of this test requires more in depth analysis with the QA team")
+			gg.It("must return the results for single BatchUDF vs multiple", func() {
+				luaCode := `-- Create a record
+				function rec_create(rec, bins)
+				    return bins
+				end`
 
+				removeUDF("test_ops.lua")
+				registerUDF(luaCode, "test_ops.lua")
+
+				for _, keyCount := range []int{10, 1} {
+					nativeClient.Truncate(nil, ns, set, nil)
+					batchRecords := []as.BatchRecordIfc{}
+
+					for k := 0; k < keyCount; k++ {
+						key, _ := as.NewKey(ns, set, k)
+						args := make(map[interface{}]interface{})
+						args["bin1_str"] = "a"
+						batchRecords = append(batchRecords, as.NewBatchUDF(
+							nil,
+							key,
+							"test_ops",
+							"rec_create",
+							as.NewMapValue(args),
+						))
+					}
+					bp := as.NewBatchPolicy()
+					err := client.BatchOperate(bp, batchRecords)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					for i := 0; i < keyCount; i++ {
+						gm.Expect(batchRecords[i].BatchRec().Err).To(gm.BeNil())
+						gm.Expect(batchRecords[i].BatchRec().ResultCode).To(gm.Equal(types.OK))
+						gm.Expect(batchRecords[i].BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"SUCCESS": map[interface{}]interface{}{"bin1_str": "a"}}))
+					}
+				}
+			})
+
+			gg.It("must return the results when one operation is against an invalid namespace", func() {
 				luaCode := `-- Create a record
 				function rec_create(rec, bins)
 				    if bins ~= nil then
@@ -577,6 +676,7 @@ var _ = gg.Describe("Aerospike", func() {
 				bp := as.NewBatchPolicy()
 				bp.RespondAllKeys = false
 				err := client.BatchOperate(bp, batchRecords)
+				err = client.BatchOperate(bp, batchRecords)
 				// gm.Expect(err).ToNot(gm.HaveOccurred())
 
 				gm.Expect(batchRecords[0].BatchRec().Err.Matches(types.INVALID_NAMESPACE)).To(gm.BeTrue())
@@ -678,10 +778,10 @@ var _ = gg.Describe("Aerospike", func() {
 
 				for _, bri := range batchRecords {
 					br := bri.BatchRec()
-					gm.Expect(br.InDoubt).To(gm.BeTrue())
+					gm.Expect(br.InDoubt).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.UDF_BAD_RESPONSE))
 					gm.Expect(br.Err.Matches(types.UDF_BAD_RESPONSE)).To(gm.Equal(true))
-					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
+					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 				}
 
 				if nsInfo(ns, "storage-engine") == "device" {
@@ -707,16 +807,16 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 
 					br := batchRecords[0].BatchRec()
-					gm.Expect(br.Err.IsInDoubt()).To(gm.BeTrue())
+					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.RECORD_TOO_BIG))
 					gm.Expect(br.Err.Matches(types.RECORD_TOO_BIG)).To(gm.Equal(true))
-					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
+					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(false))
 
 					br = batchRecords[1].BatchRec()
-					gm.Expect(br.Err.IsInDoubt()).To(gm.BeTrue())
+					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
 					gm.Expect(br.ResultCode).To(gm.Equal(types.RECORD_TOO_BIG))
 					gm.Expect(br.Err.Matches(types.RECORD_TOO_BIG)).To(gm.Equal(true))
-					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(true))
+					gm.Expect(br.Err.IsInDoubt()).To(gm.Equal(false))
 
 					br = batchRecords[2].BatchRec()
 					gm.Expect(br.Err.IsInDoubt()).To(gm.BeFalse())
@@ -727,43 +827,42 @@ var _ = gg.Describe("Aerospike", func() {
 			})
 
 			gg.It("must return the result with same ordering", func() {
-				const keyCount = 50
-				keys := []*as.Key{}
-
 				registerUDF(udfBody, "udf1.lua")
+				for _, keyCount := range []int{50, 1} {
+					keys := []*as.Key{}
+					for i := 0; i < keyCount; i++ {
+						bin := as.NewBin("bin1", i*6)
 
-				for i := 0; i < keyCount; i++ {
-					bin := as.NewBin("bin1", i*6)
+						key, err := as.NewKey(ns, set, randString(50))
+						gm.Expect(err).ToNot(gm.HaveOccurred())
 
-					key, err := as.NewKey(ns, set, randString(50))
+						err = client.PutBins(wpolicy, key, bin)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+
+						// make sure they exists in the DB
+						exists, err := client.Exists(rpolicy, key)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						gm.Expect(exists).To(gm.Equal(true))
+
+						keys = append(keys, key)
+					}
+
+					brecs, err := client.BatchExecute(bpolicy, nil, keys, "udf1", "testFunc1", as.NewValue(2))
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 
-					err = client.PutBins(wpolicy, key, bin)
+					for _, rec := range brecs {
+						gm.Expect(rec.Err).ToNot(gm.HaveOccurred())
+						gm.Expect(rec.ResultCode).To(gm.Equal(types.OK))
+						gm.Expect(rec.InDoubt).To(gm.BeFalse())
+						gm.Expect(rec.Record.Bins["SUCCESS"]).To(gm.Equal(map[interface{}]interface{}{"status": "OK"}))
+					}
+
+					recs, err := client.BatchGet(nil, keys)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
-
-					// make sure they exists in the DB
-					exists, err := client.Exists(rpolicy, key)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					gm.Expect(exists).To(gm.Equal(true))
-
-					keys = append(keys, key)
-				}
-
-				brecs, err := client.BatchExecute(bpolicy, nil, keys, "udf1", "testFunc1", as.NewValue(2))
-				gm.Expect(err).ToNot(gm.HaveOccurred())
-
-				for _, rec := range brecs {
-					gm.Expect(rec.Err).ToNot(gm.HaveOccurred())
-					gm.Expect(rec.ResultCode).To(gm.Equal(types.OK))
-					gm.Expect(rec.InDoubt).To(gm.BeFalse())
-					gm.Expect(rec.Record.Bins["SUCCESS"]).To(gm.Equal(map[interface{}]interface{}{"status": "OK"}))
-				}
-
-				recs, err := client.BatchGet(nil, keys)
-				gm.Expect(err).ToNot(gm.HaveOccurred())
-				gm.Expect(len(recs)).To(gm.Equal(len(keys)))
-				for i, rec := range recs {
-					gm.Expect(rec.Bins["bin2"].(int)).To(gm.Equal(i * 3))
+					gm.Expect(len(recs)).To(gm.Equal(len(keys)))
+					for i, rec := range recs {
+						gm.Expect(rec.Bins["bin2"].(int)).To(gm.Equal(i * 3))
+					}
 				}
 			})
 		})

@@ -21,7 +21,6 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -380,7 +379,7 @@ func initTLS() *tls.Config {
 
 // Read content from file
 func readFromFile(filePath string) ([]byte, error) {
-	dataBytes, err := ioutil.ReadFile(filePath)
+	dataBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read from file `%s`: `%v`", filePath, err)
 	}

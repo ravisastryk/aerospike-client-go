@@ -127,6 +127,7 @@ var _ = gg.Describe("Aerospike", func() {
 				InterfacePP *interface{}
 
 				ByteArray     []byte
+				ArrByteArray  [][]byte
 				Array         [3]interface{}
 				SliceString   []string
 				SliceFloat64  []float64
@@ -255,6 +256,7 @@ var _ = gg.Describe("Aerospike", func() {
 				InterfacePP *interface{} `as:"interfacepp"`
 
 				ByteArray    []byte         `as:"bytearray"`
+				ArrByteArray [][]byte       `as:"arrbytearray"`
 				Array        [3]interface{} `as:"array"`
 				SliceString  []string       `as:"slicestring"`
 				SliceFloat64 []float64      `as:"slicefloat64"`
@@ -414,6 +416,7 @@ var _ = gg.Describe("Aerospike", func() {
 					InterfacePP: &iface,
 
 					ByteArray:      []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
+					ArrByteArray:   [][]byte{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
 					Array:          [3]interface{}{1, "string", nil},
 					SliceString:    []string{"string1", "string2", "string3"},
 					SliceFloat64:   []float64{1.1, 2.2, 3.3, 4.4},
@@ -563,6 +566,7 @@ var _ = gg.Describe("Aerospike", func() {
 					InterfacePP: &iface,
 
 					ByteArray:      []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
+					ArrByteArray:   [][]byte{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
 					Array:          [3]interface{}{1, "string", nil},
 					SliceString:    []string{"string1", "string2", "string3"},
 					SliceFloat64:   []float64{1.1, 2.2, 3.3, 4.4},
@@ -1013,6 +1017,59 @@ var _ = gg.Describe("Aerospike", func() {
 
 					_, err = client.BatchGetObjects(nil, []*as.Key{}, []interface{}{})
 					gm.Expect(err).To(gm.HaveOccurred())
+				})
+
+				gg.It("should create a valid Sorted CDT Map and then Get Correct Values back in both map and []MapPair fields", func() {
+
+					cdtBinName := "orderedMap"
+
+					items := map[interface{}]interface{}{
+						"Charlie": 55,
+						"Jim":     98,
+						"John":    76,
+						"Harry":   82,
+					}
+
+					// Write values to empty map.
+					_, err := client.Operate(nil, key,
+						as.MapPutItemsOp(as.NewMapPolicy(as.MapOrder.KEY_ORDERED, as.MapWriteMode.UPDATE), cdtBinName, items),
+					)
+
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					type testObjectTagged struct {
+						TTL uint32 `asm:"ttl"`
+						Gen uint32 `asm:"gen"`
+
+						M map[string]int `as:"orderedMap"`
+					}
+
+					instance := testObjectTagged{}
+					err = client.GetObject(nil, key, &instance)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+					gm.Expect(instance.M).To(gm.Equal(map[string]int{
+						"Charlie": 55,
+						"Jim":     98,
+						"John":    76,
+						"Harry":   82,
+					}))
+
+					type testObjectTaggedSorted struct {
+						TTL uint32 `asm:"ttl"`
+						Gen uint32 `asm:"gen"`
+
+						M []as.MapPair `as:"orderedMap"`
+					}
+
+					instanceSorted := testObjectTaggedSorted{}
+					err = client.GetObject(nil, key, &instanceSorted)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+					gm.Expect(instanceSorted.M).To(gm.Equal([]as.MapPair{
+						{"Charlie", 55},
+						{"Harry", 82},
+						{"Jim", 98},
+						{"John", 76},
+					}))
 				})
 
 				gg.It("must get all objects with the most complex structure possible", func() {

@@ -46,12 +46,13 @@ func main() {
 	*value = strings.Trim(*value, " ")
 
 	// connect to the host
-	client, err := as.NewClientWithPolicy(clientPolicy, *host, *port)
+	conn, err := as.NewConnection(clientPolicy, as.NewHost(*host, *port))
 	dieIfError(err)
 
-	node := client.Cluster().GetNodes()[0]
-	infoMap, err := node.RequestInfo(as.NewInfoPolicy(), *value)
+	infoMap, err := conn.RequestInfo(*value)
 	dieIfError(err)
+
+	defer conn.Close()
 
 	if len(infoMap) == 0 {
 		log.Printf("Query successful, no information for -v \"%s\"\n\n", *value)
