@@ -34,6 +34,7 @@ We suggest complete testing of your application before using it in production.
   - [CLIENT-2702] Support Client Transaction Metrics. The native client can now track transaction latencies using histograms. Enable using the `Client.EnableMetrics` API.
 
 - **Improvements**
+  - [CLIENT-2862] Use default batch policies when the record level batch policy is nil.
   - [CLIENT-2889] Increase grpc `MaxRecvMsgSize` to handle big records for the proxy client.
   - [CLIENT-2891] Export various batch operation struct fields. Resolves #247.
   - Remove dependency on `xrand` sub-package since the native API is fast enough.
