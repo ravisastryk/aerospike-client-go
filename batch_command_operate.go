@@ -25,6 +25,7 @@ import (
 
 type batchCommandOperate struct {
 	batchCommand
+	client ClientIfc
 
 	attr    *batchAttr
 	records []BatchRecordIfc
@@ -35,6 +36,7 @@ type batchCommandOperate struct {
 }
 
 func newBatchCommandOperate(
+	client ClientIfc,
 	node *Node,
 	batch *batchNode,
 	policy *BatchPolicy,
@@ -46,6 +48,7 @@ func newBatchCommandOperate(
 			policy:           policy,
 			batch:            batch,
 		},
+		client:  client,
 		records: records,
 	}
 	return res
@@ -68,7 +71,7 @@ func (cmd *batchCommandOperate) cloneBatchCommand(batch *batchNode) batcher {
 }
 
 func (cmd *batchCommandOperate) writeBuffer(ifc command) Error {
-	attr, err := cmd.setBatchOperateIfc(cmd.policy, cmd.records, cmd.batch)
+	attr, err := cmd.setBatchOperateIfc(cmd.client, cmd.policy, cmd.records, cmd.batch)
 	cmd.attr = attr
 	return err
 }
@@ -242,18 +245,18 @@ func (cmd *batchCommandOperate) executeSingle(client *Client) Error {
 			} else if len(ops) == 0 {
 				ops = append(ops, GetOp())
 			}
-			res, err = client.Operate(br.Policy.toWritePolicy(cmd.policy), br.Key, ops...)
+			res, err = client.Operate(cmd.client.getUsableBatchReadPolicy(br.Policy).toWritePolicy(cmd.policy), br.Key, ops...)
 		case *BatchWrite:
-			policy := br.Policy.toWritePolicy(cmd.policy)
+			policy := cmd.client.getUsableBatchWritePolicy(br.Policy).toWritePolicy(cmd.policy)
 			policy.RespondPerEachOp = true
 			res, err = client.Operate(policy, br.Key, br.Ops...)
 			br.setRecord(res)
 		case *BatchDelete:
-			policy := br.Policy.toWritePolicy(cmd.policy)
+			policy := cmd.client.getUsableBatchDeletePolicy(br.Policy).toWritePolicy(cmd.policy)
 			res, err = client.Operate(policy, br.Key, DeleteOp())
 			br.setRecord(res)
 		case *BatchUDF:
-			policy := br.Policy.toWritePolicy(cmd.policy)
+			policy := cmd.client.getUsableBatchUDFPolicy(br.Policy).toWritePolicy(cmd.policy)
 			policy.RespondPerEachOp = true
 			res, err = client.execute(policy, br.Key, br.PackageName, br.FunctionName, br.FunctionArgs...)
 		}
@@ -283,7 +286,7 @@ func (cmd *batchCommandOperate) executeSingle(client *Client) Error {
 }
 
 func (cmd *batchCommandOperate) Execute() Error {
-	if len(cmd.records) == 1 {
+	if cmd.objects == nil && len(cmd.records) == 1 {
 		return cmd.executeSingle(cmd.node.cluster.client)
 	}
 	return cmd.execute(cmd)

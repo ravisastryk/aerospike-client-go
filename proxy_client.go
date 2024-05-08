@@ -51,6 +51,8 @@ type ProxyClient struct {
 	// DefaultBatchPolicy is the default parent policy used in batch read commands. Base policy fields
 	// include socketTimeout, totalTimeout, maxRetries, etc...
 	DefaultBatchPolicy *BatchPolicy
+	// DefaultBatchReadPolicy is the default read policy used in batch operate commands.
+	DefaultBatchReadPolicy *BatchReadPolicy
 	// DefaultBatchWritePolicy is the default write policy used in batch operate commands.
 	// Write policy fields include generation, expiration, durableDelete, etc...
 	DefaultBatchWritePolicy *BatchWritePolicy
@@ -98,6 +100,7 @@ func NewProxyClientWithPolicyAndHost(policy *ClientPolicy, host *Host, dialOptio
 
 		DefaultPolicy:            NewPolicy(),
 		DefaultBatchPolicy:       NewBatchPolicy(),
+		DefaultBatchReadPolicy:   NewBatchReadPolicy(),
 		DefaultBatchWritePolicy:  NewBatchWritePolicy(),
 		DefaultBatchDeletePolicy: NewBatchDeletePolicy(),
 		DefaultBatchUDFPolicy:    NewBatchUDFPolicy(),
@@ -105,6 +108,7 @@ func NewProxyClientWithPolicyAndHost(policy *ClientPolicy, host *Host, dialOptio
 		DefaultScanPolicy:        NewScanPolicy(),
 		DefaultQueryPolicy:       NewQueryPolicy(),
 		DefaultAdminPolicy:       NewAdminPolicy(),
+		DefaultInfoPolicy:        NewInfoPolicy(),
 	}
 
 	if policy.RequiresAuthentication() {
@@ -576,10 +580,11 @@ func (clnt *ProxyClient) GetHeader(policy *BasePolicy, key *Key) (*Record, Error
 // The policy can be used to specify timeouts.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) BatchGet(policy *BatchPolicy, keys []*Key, binNames ...string) ([]*Record, Error) {
+	policy = clnt.getUsableBatchPolicy(policy)
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	batchRecords := make([]*BatchRecord, 0, len(keys))
 	for _, key := range keys {
-		batchRead, batchRecord := newBatchRead(nil, key, binNames)
+		batchRead, batchRecord := newBatchRead(clnt.DefaultBatchReadPolicy, key, binNames)
 		batchRecordsIfc = append(batchRecordsIfc, batchRead)
 		batchRecords = append(batchRecords, batchRecord)
 	}
@@ -603,10 +608,11 @@ func (clnt *ProxyClient) BatchGet(policy *BatchPolicy, keys []*Key, binNames ...
 //
 // If a batch request to a node fails, the entire batch is cancelled.
 func (clnt *ProxyClient) BatchGetOperate(policy *BatchPolicy, keys []*Key, ops ...*Operation) ([]*Record, Error) {
+	policy = clnt.getUsableBatchPolicy(policy)
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	batchRecords := make([]*BatchRecord, 0, len(keys))
 	for _, key := range keys {
-		batchRead, batchRecord := newBatchReadOps(nil, key, ops...)
+		batchRead, batchRecord := newBatchReadOps(clnt.DefaultBatchReadPolicy, key, ops...)
 		batchRecordsIfc = append(batchRecordsIfc, batchRead)
 		batchRecords = append(batchRecords, batchRecord)
 	}
@@ -631,6 +637,7 @@ func (clnt *ProxyClient) BatchGetOperate(policy *BatchPolicy, keys []*Key, ops .
 // The policy can be used to specify timeouts and maximum concurrent goroutines.
 // This method requires Aerospike Server version >= 3.6.0.
 func (clnt *ProxyClient) BatchGetComplex(policy *BatchPolicy, records []*BatchRead) Error {
+	policy = clnt.getUsableBatchPolicy(policy)
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(records))
 	for _, record := range records {
 		batchRecordsIfc = append(batchRecordsIfc, record)
@@ -650,18 +657,16 @@ func (clnt *ProxyClient) BatchGetComplex(policy *BatchPolicy, records []*BatchRe
 // The policy can be used to specify timeouts.
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) BatchGetHeader(policy *BatchPolicy, keys []*Key) ([]*Record, Error) {
+	policy = clnt.getUsableBatchPolicy(policy)
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	for _, key := range keys {
-		batchRecordsIfc = append(batchRecordsIfc, NewBatchReadHeader(nil, key))
+		batchRecordsIfc = append(batchRecordsIfc, NewBatchReadHeader(clnt.DefaultBatchReadPolicy, key))
 	}
 
 	filteredOut, err := clnt.batchOperate(policy, batchRecordsIfc)
 	records := make([]*Record, 0, len(keys))
 	for i := range batchRecordsIfc {
 		records = append(records, batchRecordsIfc[i].BatchRec().Record)
-		// if nerr := batchRecordsIfc[i].BatchRec().Err; nerr != nil {
-		// 	err = chainErrors(err, nerr)
-		// }
 	}
 
 	if filteredOut > 0 {
@@ -702,7 +707,7 @@ func (clnt *ProxyClient) batchOperate(policy *BatchPolicy, records []BatchRecord
 		return 0, err
 	}
 
-	cmd := newBatchCommandOperate(nil, batchNode, policy, records)
+	cmd := newBatchCommandOperate(clnt, nil, batchNode, policy, records)
 	return cmd.filteredOutCnt, cmd.ExecuteGRPC(clnt)
 }
 
@@ -1236,6 +1241,16 @@ func (clnt *ProxyClient) getUsableBaseBatchWritePolicy(policy *BatchPolicy) *Bat
 			return clnt.DefaultBatchPolicy
 		}
 		return NewBatchPolicy()
+	}
+	return policy
+}
+
+func (clnt *ProxyClient) getUsableBatchReadPolicy(policy *BatchReadPolicy) *BatchReadPolicy {
+	if policy == nil {
+		if clnt.DefaultBatchReadPolicy != nil {
+			return clnt.DefaultBatchReadPolicy
+		}
+		return NewBatchReadPolicy()
 	}
 	return policy
 }

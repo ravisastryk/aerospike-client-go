@@ -121,7 +121,7 @@ func (clnt *ProxyClient) BatchGetObjects(policy *BatchPolicy, keys []*Key, objec
 		return nil, err
 	}
 
-	cmd := newBatchCommandOperate(nil, batchNode, policy, batchRecordsIfc)
+	cmd := newBatchCommandOperate(clnt, nil, batchNode, policy, batchRecordsIfc)
 
 	objectsFound := make([]bool, len(keys))
 	cmd.objects = objectsVal

@@ -41,6 +41,8 @@ type Client struct {
 	// DefaultBatchPolicy is the default parent policy used in batch read commands. Base policy fields
 	// include socketTimeout, totalTimeout, maxRetries, etc...
 	DefaultBatchPolicy *BatchPolicy
+	// DefaultBatchReadPolicy is the default read policy used in batch operate commands.
+	DefaultBatchReadPolicy *BatchReadPolicy
 	// DefaultBatchWritePolicy is the default write policy used in batch operate commands.
 	// Write policy fields include generation, expiration, durableDelete, etc...
 	DefaultBatchWritePolicy *BatchWritePolicy
@@ -97,6 +99,7 @@ func NewClientWithPolicyAndHost(policy *ClientPolicy, hosts ...*Host) (*Client, 
 		cluster:                  cluster,
 		DefaultPolicy:            NewPolicy(),
 		DefaultBatchPolicy:       NewBatchPolicy(),
+		DefaultBatchReadPolicy:   NewBatchReadPolicy(),
 		DefaultBatchWritePolicy:  NewBatchWritePolicy(),
 		DefaultBatchDeletePolicy: NewBatchDeletePolicy(),
 		DefaultBatchUDFPolicy:    NewBatchUDFPolicy(),
@@ -656,7 +659,7 @@ func (clnt *Client) BatchOperate(policy *BatchPolicy, records []BatchRecordIfc) 
 		return err
 	}
 
-	cmd := newBatchCommandOperate(nil, nil, policy, records)
+	cmd := newBatchCommandOperate(clnt, nil, nil, policy, records)
 	_, err = clnt.batchExecute(policy, batchNodes, cmd)
 	return err
 }
@@ -1853,6 +1856,16 @@ func (clnt *Client) getUsableBaseBatchWritePolicy(policy *BatchPolicy) *BatchPol
 			return clnt.DefaultBatchPolicy
 		}
 		return NewBatchPolicy()
+	}
+	return policy
+}
+
+func (clnt *Client) getUsableBatchReadPolicy(policy *BatchReadPolicy) *BatchReadPolicy {
+	if policy == nil {
+		if clnt.DefaultBatchReadPolicy != nil {
+			return clnt.DefaultBatchReadPolicy
+		}
+		return NewBatchReadPolicy()
 	}
 	return policy
 }

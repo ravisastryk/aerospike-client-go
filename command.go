@@ -615,7 +615,7 @@ func (cmd *baseCommand) setUdf(policy *WritePolicy, key *Key, packageName string
 	return nil
 }
 
-func (cmd *baseCommand) setBatchOperateIfc(policy *BatchPolicy, records []BatchRecordIfc, batch *batchNode) (*batchAttr, Error) {
+func (cmd *baseCommand) setBatchOperateIfc(client ClientIfc, policy *BatchPolicy, records []BatchRecordIfc, batch *batchNode) (*batchAttr, Error) {
 	offsets := batch.offsets
 	max := len(batch.offsets)
 
@@ -706,12 +706,7 @@ func (cmd *baseCommand) setBatchOperateIfc(policy *BatchPolicy, records []BatchR
 			case _BRT_BATCH_READ:
 				br := record.(*BatchRead)
 
-				if br.Policy != nil {
-					attr.setBatchRead(br.Policy)
-				} else {
-					attr.setRead(policy)
-				}
-
+				attr.setBatchRead(client.getUsableBatchReadPolicy(br.Policy))
 				if len(br.BinNames) > 0 {
 					cmd.writeBatchBinNames(key, br.BinNames, attr, attr.filterExp)
 				} else if br.Ops != nil {
@@ -725,22 +720,14 @@ func (cmd *baseCommand) setBatchOperateIfc(policy *BatchPolicy, records []BatchR
 			case _BRT_BATCH_WRITE:
 				bw := record.(*BatchWrite)
 
-				if bw.Policy != nil {
-					attr.setBatchWrite(bw.Policy)
-				} else {
-					attr.setWrite(&policy.BasePolicy)
-				}
+				attr.setBatchWrite(client.getUsableBatchWritePolicy(bw.Policy))
 				attr.adjustWrite(bw.Ops)
 				cmd.writeBatchOperations(key, bw.Ops, attr, attr.filterExp)
 
 			case _BRT_BATCH_UDF:
 				bu := record.(*BatchUDF)
 
-				if bu.Policy != nil {
-					attr.setBatchUDF(bu.Policy)
-				} else {
-					attr.setUDF(&policy.BasePolicy)
-				}
+				attr.setBatchUDF(client.getUsableBatchUDFPolicy(bu.Policy))
 				cmd.writeBatchWrite(key, attr, attr.filterExp, 3, 0)
 				cmd.writeFieldString(bu.PackageName, UDF_PACKAGE_NAME)
 				cmd.writeFieldString(bu.FunctionName, UDF_FUNCTION)
@@ -749,11 +736,7 @@ func (cmd *baseCommand) setBatchOperateIfc(policy *BatchPolicy, records []BatchR
 			case _BRT_BATCH_DELETE:
 				bd := record.(*BatchDelete)
 
-				if bd.Policy != nil {
-					attr.setBatchDelete(bd.Policy)
-				} else {
-					attr.setDelete(&policy.BasePolicy)
-				}
+				attr.setBatchDelete(client.getUsableBatchDeletePolicy(bd.Policy))
 				cmd.writeBatchWrite(key, attr, attr.filterExp, 0, 0)
 			}
 			prev = record
