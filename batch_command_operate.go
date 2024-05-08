@@ -250,7 +250,6 @@ func (cmd *batchCommandOperate) executeSingle(client *Client) Error {
 			br.setRecord(res)
 		case *BatchDelete:
 			policy := br.Policy.toWritePolicy(cmd.policy)
-			policy.RespondPerEachOp = true
 			res, err = client.Operate(policy, br.Key, DeleteOp())
 			br.setRecord(res)
 		case *BatchUDF:

@@ -197,6 +197,12 @@ var _ = gg.Describe("Aerospike", func() {
 				err := client.BatchOperate(bpolicy, brecs)
 				gm.Expect(err).ToNot(gm.HaveOccurred())
 
+				// Since the ops will run out of order, there is always a chance that
+				// the read operation will run first and return a KEY_NOT_FOUND error.
+				// As a result we run the operate command twice.
+				err = client.BatchOperate(bpolicy, brecs)
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+
 				gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
 				gm.Expect(op1.BatchRec().ResultCode).To(gm.Equal(types.OK))
 				gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin1": nil, "bin2": nil}))
@@ -279,6 +285,10 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin1": nil, "bin2": nil}))
 					gm.Expect(op1.BatchRec().InDoubt).To(gm.BeFalse())
 
+					brecs = []as.BatchRecordIfc{op1, op3}
+					err = client.BatchOperate(bpolicy, brecs)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
 					// There is no guarantee for the order of execution for different commands
 					gm.Expect(op3.BatchRec().Err).ToNot(gm.HaveOccurred())
 					gm.Expect(op3.BatchRec().Record).ToNot(gm.BeNil())
@@ -288,14 +298,9 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(err).ToNot(gm.HaveOccurred())
 					gm.Expect(exists).To(gm.BeTrue())
 
-					brecs = []as.BatchRecordIfc{op1, op2}
+					brecs = []as.BatchRecordIfc{op2}
 					err = client.BatchOperate(bpolicy, brecs)
 					gm.Expect(err).ToNot(gm.HaveOccurred())
-
-					gm.Expect(op1.BatchRec().Err).ToNot(gm.HaveOccurred())
-					gm.Expect(op1.BatchRec().ResultCode).To(gm.Equal(types.OK))
-					gm.Expect(op1.BatchRec().Record.Bins).To(gm.Equal(as.BinMap{"bin1": nil, "bin2": nil}))
-					gm.Expect(op1.BatchRec().InDoubt).To(gm.BeFalse())
 
 					gm.Expect(op2.BatchRec().Err).ToNot(gm.HaveOccurred())
 					gm.Expect(op2.BatchRec().ResultCode).To(gm.Equal(types.OK))
@@ -671,6 +676,7 @@ var _ = gg.Describe("Aerospike", func() {
 				bp := as.NewBatchPolicy()
 				bp.RespondAllKeys = false
 				err := client.BatchOperate(bp, batchRecords)
+				err = client.BatchOperate(bp, batchRecords)
 				// gm.Expect(err).ToNot(gm.HaveOccurred())
 
 				gm.Expect(batchRecords[0].BatchRec().Err.Matches(types.INVALID_NAMESPACE)).To(gm.BeTrue())

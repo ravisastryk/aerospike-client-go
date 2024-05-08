@@ -169,8 +169,9 @@ func (cmd *batchCommandDelete) transactionType() transactionType {
 }
 
 func (cmd *batchCommandDelete) executeSingle(client *Client) Error {
+	policy := cmd.batchDeletePolicy.toWritePolicy(cmd.policy)
 	for i, key := range cmd.keys {
-		res, err := client.Operate(cmd.batchDeletePolicy.toWritePolicy(cmd.policy), key, DeleteOp())
+		res, err := client.Operate(policy, key, DeleteOp())
 		cmd.records[i].setRecord(res)
 		if err != nil {
 			cmd.records[i].setRawError(err)
