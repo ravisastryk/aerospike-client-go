@@ -712,7 +712,7 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(rec.Bins).To(gm.Equal(as.BinMap{"name": t.Name, "inner": map[interface{}]interface{}{"v1": 0, "v2": ""}}))
 				})
 
-				gg.It("must save an object with the most complex structure possible", func() {
+				gg.It("must save an object with the most complex structure possible and retrieve it via BatchGetObject", func() {
 
 					testObj := makeTestObject()
 					err := client.PutObject(nil, key, &testObj)

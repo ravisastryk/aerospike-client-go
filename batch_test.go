@@ -292,6 +292,43 @@ var _ = gg.Describe("Aerospike", func() {
 
 			})
 
+			gg.It("must successfully execute a BatchOperate for many keys", func() {
+				if *dbaas {
+					gg.Skip("Not supported in DBAAS environment")
+				}
+
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+				bwPolicy := as.NewBatchWritePolicy()
+				bdPolicy := as.NewBatchDeletePolicy()
+
+				var keys []*as.Key
+				for i := 0; i < 64; i++ {
+					key, _ := as.NewKey(ns, set, i)
+					if i == 0 {
+						keys = append(keys, key)
+					}
+					bin0 := as.NewBin("count", i)
+					err := client.PutBins(nil, key, bin0)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+				}
+
+				for _, sendKey := range []bool{true, false} {
+					bwPolicy.SendKey = sendKey
+					bdPolicy.SendKey = sendKey
+					bpolicy.SendKey = !sendKey
+
+					var brecs []as.BatchRecordIfc
+					for _, key := range keys {
+						brecs = append(brecs, as.NewBatchWrite(bwPolicy, key, as.PutOp(as.NewBin("bin1", "a")), as.PutOp(as.NewBin("bin2", "b"))))
+						brecs = append(brecs, as.NewBatchDelete(bdPolicy, key))
+						brecs = append(brecs, as.NewBatchRead(nil, key, []string{"bin2"}))
+					}
+
+					err := client.BatchOperate(bpolicy, brecs)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+				}
+			})
+
 			gg.It("must successfully execute a delete op", func() {
 				if *dbaas {
 					gg.Skip("Not supported in DBAAS environment")
