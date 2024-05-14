@@ -25,7 +25,7 @@ type Person struct {
 
 // EncodeBlob defines The AerospikeBlob interface
 func (p Person) EncodeBlob() ([]byte, error) {
-	return append([]byte(p.name)), nil
+	return []byte(p.name), nil
 }
 
 // DecodeBlob is optional, and should be used manually
