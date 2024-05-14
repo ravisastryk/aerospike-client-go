@@ -210,13 +210,5 @@ func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
 			etsk.clnt.returnGrpcConnToPool(conn)
 			return false, nil
 		}
-
-		if !res.GetHasNext() {
-			etsk.clnt.returnGrpcConnToPool(conn)
-			return false, nil
-		}
 	}
-
-	etsk.clnt.returnGrpcConnToPool(conn)
-	return true, nil
 }

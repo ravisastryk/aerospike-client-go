@@ -673,7 +673,6 @@ func runBench_RU(client as.ClientIfc, ident int, times int) {
 			time.Sleep(time.Second - time.Duration(time.Now().UnixNano()-atomic.LoadInt64(&lastReport)))
 		}
 	}
-	countReportChan <- &TStats{false, WCount, RCount, writeErr, readErr, writeTOErr, readTOErr, wMinLat, wMaxLat, rMinLat, rMaxLat, wLatTotal, rLatTotal, wLatList, rLatList}
 }
 
 // calculates transactions per second

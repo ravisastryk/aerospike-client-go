@@ -212,14 +212,6 @@ func (clnt *Client) ScanNodeObjects(apolicy *ScanPolicy, node *Node, objChan int
 	return clnt.scanNodePartitionsObjects(apolicy, node, objChan, namespace, setName, binNames...)
 }
 
-// scanNodeObjects reads all records in specified namespace and set for one node only,
-// and marshalls the results into the objects of the provided channel in Recordset.
-// If the policy is nil, the default relevant policy will be used.
-func (clnt *Client) scanNodeObjects(policy *ScanPolicy, node *Node, recordset *Recordset, namespace string, setName string, binNames ...string) Error {
-	command := newScanObjectsCommand(node, policy, namespace, setName, binNames, recordset)
-	return command.Execute()
-}
-
 // QueryPartitionObjects executes a query for specified partitions and returns a recordset.
 // The query executor puts records on the channel from separate goroutines.
 // The caller can concurrently pop records off the channel through the
