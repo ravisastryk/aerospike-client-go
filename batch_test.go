@@ -1,3 +1,6 @@
+//go:build !app_engine
+// +build !app_engine
+
 // Copyright 2014-2022 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +32,38 @@ import (
 
 // ALL tests are isolated by SetName and Key, which are 50 random characters
 var _ = gg.Describe("Aerospike", func() {
+
+	gg.Describe("BatchGetOperate operations", func() {
+		var ns = *namespace
+		var set = randString(50)
+
+		gg.It("must return the result with same ordering", func() {
+			for _, keyCount := range []int{256, 1} {
+				var keys []*as.Key
+				for i := 0; i < keyCount; i++ {
+					key, _ := as.NewKey(ns, set, i)
+					client.PutBins(nil, key, as.NewBin("i", i), as.NewBin("j", i))
+
+					keys = append(keys, key)
+				}
+
+				ops := []*as.Operation{as.GetBinOp("i"), as.PutOp(as.NewBin("h", 1))}
+				_, err := client.BatchGetOperate(nil, keys, ops...)
+				gm.Expect(err).To(gm.HaveOccurred())
+
+				ops = []*as.Operation{as.GetBinOp("i")}
+				recs, err := client.BatchGetOperate(nil, keys, ops...)
+
+				gm.Expect(err).ToNot(gm.HaveOccurred())
+				for i, rec := range recs {
+					gm.Expect(len(rec.Bins)).To(gm.Equal(1))
+					gm.Expect(rec.Bins["i"]).To(gm.Equal(i))
+				}
+
+			}
+		}) // it
+
+	}) // describe
 
 	gg.Describe("Batch Write operations", func() {
 		var ns = *namespace
