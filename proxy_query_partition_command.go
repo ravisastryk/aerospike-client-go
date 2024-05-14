@@ -105,7 +105,8 @@ func (cmd *grpcQueryPartitionCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	client := kvs.NewQueryClient(conn)
 
-	ctx := cmd.policy.grpcDeadlineContext()
+	ctx, cancel := cmd.policy.grpcDeadlineContext()
+	defer cancel()
 
 	streamRes, gerr := client.Query(ctx, &req)
 	if gerr != nil {

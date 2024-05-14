@@ -108,7 +108,8 @@ func (cmd *executeCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	client := kvs.NewKVSClient(conn)
 
-	ctx := cmd.policy.grpcDeadlineContext()
+	ctx, cancel := cmd.policy.grpcDeadlineContext()
+	defer cancel()
 
 	res, gerr := client.Execute(ctx, &req)
 	if gerr != nil {

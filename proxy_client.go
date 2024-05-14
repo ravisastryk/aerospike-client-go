@@ -273,7 +273,8 @@ func (clnt *ProxyClient) createGrpcConn(noInterceptor bool) (*grpc.ClientConn, E
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), clnt.clientPolicy.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), clnt.clientPolicy.Timeout)
+	defer cancel()
 
 	allOptions := append(dialOptions, clnt.dialOptions...)
 	if !noInterceptor {
@@ -324,7 +325,8 @@ func (clnt *ProxyClient) ServerVersion(policy *InfoPolicy) (string, Error) {
 
 	client := kvs.NewAboutClient(conn)
 
-	ctx := policy.grpcDeadlineContext()
+	ctx, cancel := policy.grpcDeadlineContext()
+	defer cancel()
 
 	res, gerr := client.Get(ctx, &req)
 	if gerr != nil {

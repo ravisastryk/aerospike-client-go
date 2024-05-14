@@ -180,7 +180,8 @@ func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
 
 	client := kvs.NewQueryClient(conn)
 
-	ctx, _ := context.WithTimeout(context.Background(), NewInfoPolicy().Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), NewInfoPolicy().Timeout)
+	defer cancel()
 
 	streamRes, gerr := client.BackgroundTaskStatus(ctx, &req)
 	if gerr != nil {
