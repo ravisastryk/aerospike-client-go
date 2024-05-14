@@ -1,5 +1,5 @@
-//go:build !as_performance
-// +build !as_performance
+//go:build !as_performance && !app_engine
+// +build !as_performance,!app_engine
 
 // Copyright 2014-2022 Aerospike, Inc.
 //

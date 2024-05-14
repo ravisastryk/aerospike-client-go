@@ -151,6 +151,11 @@ func (clnt *ProxyClient) GetDefaultBatchWritePolicy() *BatchWritePolicy {
 	return clnt.DefaultBatchWritePolicy
 }
 
+// DefaultBatchReadPolicy returns corresponding default policy from the client
+func (clnt *ProxyClient) GetDefaultBatchReadPolicy() *BatchReadPolicy {
+	return clnt.DefaultBatchReadPolicy
+}
+
 // DefaultBatchDeletePolicy returns corresponding default policy from the client
 func (clnt *ProxyClient) GetDefaultBatchDeletePolicy() *BatchDeletePolicy {
 	return clnt.DefaultBatchDeletePolicy
@@ -194,6 +199,11 @@ func (clnt *ProxyClient) SetDefaultPolicy(policy *BasePolicy) {
 // DefaultBatchPolicy returns corresponding default policy from the client
 func (clnt *ProxyClient) SetDefaultBatchPolicy(policy *BatchPolicy) {
 	clnt.DefaultBatchPolicy = policy
+}
+
+// DefaultBatchReadPolicy returns corresponding default policy from the client
+func (clnt *ProxyClient) SetDefaultBatchReadPolicy(policy *BatchReadPolicy) {
+	clnt.DefaultBatchReadPolicy = policy
 }
 
 // DefaultBatchWritePolicy returns corresponding default policy from the client

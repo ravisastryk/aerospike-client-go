@@ -137,6 +137,11 @@ func (clnt *Client) GetDefaultBatchWritePolicy() *BatchWritePolicy {
 	return clnt.DefaultBatchWritePolicy
 }
 
+// DefaultBatchReadPolicy returns corresponding default policy from the client
+func (clnt *Client) GetDefaultBatchReadPolicy() *BatchReadPolicy {
+	return clnt.DefaultBatchReadPolicy
+}
+
 // DefaultBatchDeletePolicy returns corresponding default policy from the client
 func (clnt *Client) GetDefaultBatchDeletePolicy() *BatchDeletePolicy {
 	return clnt.DefaultBatchDeletePolicy
@@ -185,6 +190,11 @@ func (clnt *Client) SetDefaultBatchPolicy(policy *BatchPolicy) {
 // DefaultBatchWritePolicy returns corresponding default policy from the client
 func (clnt *Client) SetDefaultBatchWritePolicy(policy *BatchWritePolicy) {
 	clnt.DefaultBatchWritePolicy = policy
+}
+
+// DefaultBatchReadPolicy returns corresponding default policy from the client
+func (clnt *Client) SetDefaultBatchReadPolicy(policy *BatchReadPolicy) {
+	clnt.DefaultBatchReadPolicy = policy
 }
 
 // DefaultBatchDeletePolicy returns corresponding default policy from the client

@@ -1,3 +1,6 @@
+//go:build !app_engine
+// +build !app_engine
+
 // Copyright 2014-2022 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
