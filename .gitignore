@@ -26,4 +26,4 @@ Dockerfile*
 .dockerignore
 docker-compose.yml
 golangci.yml
-cover.out
+cover*.out
