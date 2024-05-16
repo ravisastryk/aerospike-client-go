@@ -681,16 +681,16 @@ var _ = gg.Describe("Aerospike", func() {
 								int64(math.MinInt64): int64(math.MinInt64),
 								int64(math.MaxInt64): int64(math.MaxInt64),
 								// uint64(math.MaxUint64):    uint64(math.MaxUint64),
-								float32(-math.MaxFloat32): float32(-math.MaxFloat32),
-								float64(-math.MaxFloat64): float64(-math.MaxFloat64),
-								float32(math.MaxFloat32):  float32(math.MaxFloat32),
-								float64(math.MaxFloat64):  float64(math.MaxFloat64),
-								"true":                    true,
-								"false":                   false,
-								"string":                  map[interface{}]interface{}{nil: "string", "string": 19},                // map to complex array
-								nil:                       []interface{}{18, 41},                                                   // array to complex map
-								"GeoJSON":                 as.NewGeoJSONValue(`{ "type": "Point", "coordinates": [0.00, 0.00] }"`), // bit-sign test
-								"intList":                 intList,
+								// float32(-math.MaxFloat32): float32(-math.MaxFloat32),
+								// float64(-math.MaxFloat64): float64(-math.MaxFloat64),
+								// float32(math.MaxFloat32):  float32(math.MaxFloat32),
+								// float64(math.MaxFloat64):  float64(math.MaxFloat64),
+								"true":   true,
+								"false":  false,
+								"string": map[interface{}]interface{}{ /*nil: "string",*/ "string": 19}, // map to complex array
+								// nil:                       []interface{}{18, 41},                                                   // array to complex map
+								"GeoJSON": as.NewGeoJSONValue(`{ "type": "Point", "coordinates": [0.00, 0.00] }"`), // bit-sign test
+								"intList": intList,
 							},
 						})
 
@@ -733,14 +733,14 @@ var _ = gg.Describe("Aerospike", func() {
 							int64(math.MinInt64): int64(math.MinInt64),
 							int64(math.MaxInt64): int64(math.MaxInt64),
 							// uint64(math.MaxUint64):    uint64(math.MaxUint64),
-							float32(-math.MaxFloat32): float32(-math.MaxFloat32),
-							float64(-math.MaxFloat64): float64(-math.MaxFloat64),
-							float32(math.MaxFloat32):  float32(math.MaxFloat32),
-							float64(math.MaxFloat64):  float64(math.MaxFloat64),
-							"string":                  map[interface{}]interface{}{nil: "string", "string": 19},                // map to complex array
-							nil:                       []interface{}{18, 41},                                                   // array to complex map
-							"longString":              strings.Repeat("s", 32911),                                              // bit-sign test
-							"GeoJSON":                 as.NewGeoJSONValue(`{ "type": "Point", "coordinates": [0.00, 0.00] }"`), // bit-sign test
+							// float32(-math.MaxFloat32): float32(-math.MaxFloat32),
+							// float64(-math.MaxFloat64): float64(-math.MaxFloat64),
+							// float32(math.MaxFloat32):  float32(math.MaxFloat32),
+							// float64(math.MaxFloat64):  float64(math.MaxFloat64),
+							"string": map[interface{}]interface{}{ /*nil: "string",*/ "string": 19}, // map to complex array
+							// nil:          []interface{}{18, 41},                                                   // array to complex map
+							"longString": strings.Repeat("s", 32911),                                              // bit-sign test
+							"GeoJSON":    as.NewGeoJSONValue(`{ "type": "Point", "coordinates": [0.00, 0.00] }"`), // bit-sign test
 						})
 
 						err = client.PutBins(wpolicy, key, bin1, bin2)

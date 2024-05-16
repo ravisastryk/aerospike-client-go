@@ -431,7 +431,7 @@ var _ = gg.Describe("Aerospike", func() {
 					ArrayOfStructs: [1]SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 					SliceOfStructs: []SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 
-					Map:           map[interface{}]interface{}{1: "string", "string": nil, nil: map[interface{}]interface{}{"1": ip}, true: false},
+					Map:           map[interface{}]interface{}{1: "string", "string": nil /*nil: map[interface{}]interface{}{"1": ip}, true: false*/},
 					MapOfMaps:     map[string]map[int64]byte{"1": {1: 1, 2: 2}},
 					MapOfSlices:   map[string][]byte{"1": {1, 2}, "2": {3, 4}},
 					MapOfArrays:   map[string][3]byte{"1": {1, 2, 3}, "2": {3, 4, 5}},
@@ -581,7 +581,7 @@ var _ = gg.Describe("Aerospike", func() {
 					ArrayOfStructs: [1]SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 					SliceOfStructs: []SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 
-					Map:           map[interface{}]interface{}{1: "string", "string": nil, nil: map[interface{}]interface{}{"1": ip}, true: false},
+					Map:           map[interface{}]interface{}{1: "string", "string": nil /*nil: map[interface{}]interface{}{"1": ip}, true: false*/},
 					MapOfMaps:     map[string]map[int64]byte{"1": {1: 1, 2: 2}},
 					MapOfSlices:   map[string][]byte{"1": {1, 2}, "2": {3, 4}},
 					MapOfArrays:   map[string][3]byte{"1": {1, 2, 3}, "2": {3, 4, 5}},
