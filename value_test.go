@@ -30,7 +30,7 @@ type testBLOB struct {
 }
 
 func (b *testBLOB) EncodeBlob() ([]byte, error) {
-	return append([]byte(b.name)), nil
+	return []byte(b.name), nil
 }
 
 func isValidIntegerValue(i int, v Value) bool {

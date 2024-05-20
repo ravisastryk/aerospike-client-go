@@ -1,6 +1,23 @@
 # Change History
 
+## May 16 2024: v7.4.0
+
+  This a minor fix release. We strongly suggest you upgrade to this version over the v7.3.0 if you use the `Client.BatchGetOperate` API.
+
+- **Improvements**
+  - Add code coverage tests to the Github Actions workflow.
+  - Call the `CancelFunc` for the `context.WithTimeout` per linter suggestions in grpc calls.
+  - Minor clean up and remove dead code.
+
+- **Fixes**
+  - [CLIENT-2943] `Client.BatchGetOperate` does not consider ops in single key transforms.
+  - [CLIENT-2704] Client dev tests failing with new server map key restrictions.
+  - Fix `as_performance` and `app_engine` build tags.
+
 ## May 3 2024: v7.3.0
+
+> [!WARNING]  
+> Do not use this version if you are using the `Client.BatchGetOperate` API.
 
 This is a major feature release of the Go client and touches some of the fundamental aspects of the inner workings of it.
 We suggest complete testing of your application before using it in production.

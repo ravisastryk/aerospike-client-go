@@ -326,7 +326,8 @@ func (cmd *batchCommandOperate) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	client := kvs.NewKVSClient(conn)
 
-	ctx := cmd.policy.grpcDeadlineContext()
+	ctx, cancel := cmd.policy.grpcDeadlineContext()
+	defer cancel()
 
 	streamRes, gerr := client.BatchOperate(ctx, &req)
 	if gerr != nil {

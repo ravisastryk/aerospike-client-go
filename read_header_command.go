@@ -130,7 +130,8 @@ func (cmd *readHeaderCommand) ExecuteGRPC(clnt *ProxyClient) Error {
 
 	client := kvs.NewKVSClient(conn)
 
-	ctx := cmd.policy.grpcDeadlineContext()
+	ctx, cancel := cmd.policy.grpcDeadlineContext()
+	defer cancel()
 
 	res, gerr := client.GetHeader(ctx, &req)
 	if gerr != nil {

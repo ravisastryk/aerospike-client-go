@@ -129,7 +129,8 @@ func (interceptor *authInterceptor) login() Error {
 
 	client := auth.NewAuthServiceClient(conn)
 
-	ctx, _ := context.WithTimeout(context.Background(), interceptor.clnt.clientPolicy.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), interceptor.clnt.clientPolicy.Timeout)
+	defer cancel()
 
 	res, gerr := client.Get(ctx, &req)
 	if gerr != nil {

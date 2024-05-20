@@ -151,6 +151,11 @@ func (clnt *ProxyClient) GetDefaultBatchWritePolicy() *BatchWritePolicy {
 	return clnt.DefaultBatchWritePolicy
 }
 
+// DefaultBatchReadPolicy returns corresponding default policy from the client
+func (clnt *ProxyClient) GetDefaultBatchReadPolicy() *BatchReadPolicy {
+	return clnt.DefaultBatchReadPolicy
+}
+
 // DefaultBatchDeletePolicy returns corresponding default policy from the client
 func (clnt *ProxyClient) GetDefaultBatchDeletePolicy() *BatchDeletePolicy {
 	return clnt.DefaultBatchDeletePolicy
@@ -194,6 +199,11 @@ func (clnt *ProxyClient) SetDefaultPolicy(policy *BasePolicy) {
 // DefaultBatchPolicy returns corresponding default policy from the client
 func (clnt *ProxyClient) SetDefaultBatchPolicy(policy *BatchPolicy) {
 	clnt.DefaultBatchPolicy = policy
+}
+
+// DefaultBatchReadPolicy returns corresponding default policy from the client
+func (clnt *ProxyClient) SetDefaultBatchReadPolicy(policy *BatchReadPolicy) {
+	clnt.DefaultBatchReadPolicy = policy
 }
 
 // DefaultBatchWritePolicy returns corresponding default policy from the client
@@ -273,7 +283,8 @@ func (clnt *ProxyClient) createGrpcConn(noInterceptor bool) (*grpc.ClientConn, E
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), clnt.clientPolicy.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), clnt.clientPolicy.Timeout)
+	defer cancel()
 
 	allOptions := append(dialOptions, clnt.dialOptions...)
 	if !noInterceptor {
@@ -324,7 +335,8 @@ func (clnt *ProxyClient) ServerVersion(policy *InfoPolicy) (string, Error) {
 
 	client := kvs.NewAboutClient(conn)
 
-	ctx := policy.grpcDeadlineContext()
+	ctx, cancel := policy.grpcDeadlineContext()
+	defer cancel()
 
 	res, gerr := client.Get(ctx, &req)
 	if gerr != nil {

@@ -1,5 +1,5 @@
-//go:build !as_performance
-// +build !as_performance
+//go:build !as_performance && !app_engine
+// +build !as_performance,!app_engine
 
 // Copyright 2014-2022 Aerospike, Inc.
 //
@@ -431,7 +431,7 @@ var _ = gg.Describe("Aerospike", func() {
 					ArrayOfStructs: [1]SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 					SliceOfStructs: []SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 
-					Map:           map[interface{}]interface{}{1: "string", "string": nil, nil: map[interface{}]interface{}{"1": ip}, true: false},
+					Map:           map[interface{}]interface{}{1: "string", "string": nil /*nil: map[interface{}]interface{}{"1": ip}, true: false*/},
 					MapOfMaps:     map[string]map[int64]byte{"1": {1: 1, 2: 2}},
 					MapOfSlices:   map[string][]byte{"1": {1, 2}, "2": {3, 4}},
 					MapOfArrays:   map[string][3]byte{"1": {1, 2, 3}, "2": {3, 4, 5}},
@@ -581,7 +581,7 @@ var _ = gg.Describe("Aerospike", func() {
 					ArrayOfStructs: [1]SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 					SliceOfStructs: []SomeStruct{{A: 1, Self: &SomeStruct{A: 1}}},
 
-					Map:           map[interface{}]interface{}{1: "string", "string": nil, nil: map[interface{}]interface{}{"1": ip}, true: false},
+					Map:           map[interface{}]interface{}{1: "string", "string": nil /*nil: map[interface{}]interface{}{"1": ip}, true: false*/},
 					MapOfMaps:     map[string]map[int64]byte{"1": {1: 1, 2: 2}},
 					MapOfSlices:   map[string][]byte{"1": {1, 2}, "2": {3, 4}},
 					MapOfArrays:   map[string][3]byte{"1": {1, 2, 3}, "2": {3, 4, 5}},
@@ -712,7 +712,7 @@ var _ = gg.Describe("Aerospike", func() {
 					gm.Expect(rec.Bins).To(gm.Equal(as.BinMap{"name": t.Name, "inner": map[interface{}]interface{}{"v1": 0, "v2": ""}}))
 				})
 
-				gg.It("must save an object with the most complex structure possible", func() {
+				gg.It("must save an object with the most complex structure possible and retrieve it via BatchGetObject", func() {
 
 					testObj := makeTestObject()
 					err := client.PutObject(nil, key, &testObj)

@@ -28,7 +28,7 @@ type testBLOB struct {
 }
 
 func (tb *testBLOB) EncodeBlob() ([]byte, error) {
-	return append([]byte(tb.name)), nil
+	return []byte(tb.name), nil
 }
 
 // generates a random string of specified length

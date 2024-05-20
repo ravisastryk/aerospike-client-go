@@ -219,15 +219,18 @@ func (cmd *batchCommandGet) transactionType() transactionType {
 func (cmd *batchCommandGet) executeSingle(client *Client) Error {
 	for _, offset := range cmd.batch.offsets {
 		var err Error
-		if cmd.objects == nil {
-			if (cmd.readAttr & _INFO1_NOBINDATA) == _INFO1_NOBINDATA {
-				cmd.records[offset], err = client.GetHeader(&cmd.policy.BasePolicy, cmd.keys[offset])
-			} else {
-				cmd.records[offset], err = client.Get(&cmd.policy.BasePolicy, cmd.keys[offset], cmd.binNames...)
+		if len(cmd.ops) > 0 {
+			// Validate that all operations are read
+			for i := range cmd.ops {
+				if cmd.ops[i].opType.isWrite {
+					return newError(types.PARAMETER_ERROR, "Write operations not allowed in batch read").setNode(cmd.node)
+				}
 			}
+			cmd.records[offset], err = client.Operate(cmd.policy.toWritePolicy(), cmd.keys[offset], cmd.ops...)
+		} else if (cmd.readAttr & _INFO1_NOBINDATA) == _INFO1_NOBINDATA {
+			cmd.records[offset], err = client.GetHeader(&cmd.policy.BasePolicy, cmd.keys[offset])
 		} else {
-			err = client.getObjectDirect(&cmd.policy.BasePolicy, cmd.keys[offset], cmd.objects[offset])
-			cmd.objectsFound[offset] = err == nil
+			cmd.records[offset], err = client.Get(&cmd.policy.BasePolicy, cmd.keys[offset], cmd.binNames...)
 		}
 		if err != nil {
 			// Key not found is NOT an error for batch requests
@@ -250,7 +253,7 @@ func (cmd *batchCommandGet) executeSingle(client *Client) Error {
 }
 
 func (cmd *batchCommandGet) Execute() Error {
-	if len(cmd.batch.offsets) == 1 {
+	if cmd.objects == nil && len(cmd.batch.offsets) == 1 {
 		return cmd.executeSingle(cmd.node.cluster.client)
 	}
 	return cmd.execute(cmd)

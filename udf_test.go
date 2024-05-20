@@ -1,3 +1,6 @@
+//go:build !app_engine
+// +build !app_engine
+
 // Copyright 2014-2022 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -368,7 +371,7 @@ var _ = gg.Describe("UDF/Query tests", func() {
 		gg.It("must serialize map values to echo function and get the same value back", func() {
 
 			v := map[interface{}]interface{}{
-				nil:            nil,
+				// nil:            nil,
 				math.MinInt64:  math.MinInt64,
 				math.MinInt32:  math.MinInt32,
 				math.MinInt16:  math.MinInt16,
@@ -388,7 +391,7 @@ var _ = gg.Describe("UDF/Query tests", func() {
 			}
 
 			vExpected := map[interface{}]interface{}{
-				nil:            nil,
+				// nil:            nil,
 				math.MinInt64:  math.MinInt64,
 				math.MinInt32:  math.MinInt32,
 				math.MinInt16:  math.MinInt16,
