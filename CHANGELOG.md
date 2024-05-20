@@ -1,6 +1,6 @@
 # Change History
 
-## May 16 2024: v7.4.0
+## May 20 2024: v7.4.0
 
   This a minor fix release. We strongly suggest you upgrade to this version over the v7.3.0 if you use the `Client.BatchGetOperate` API.
 
@@ -16,7 +16,7 @@
 
 ## May 3 2024: v7.3.0
 
-> [!WARNING]  
+> [!WARNING]
 > Do not use this version if you are using the `Client.BatchGetOperate` API.
 
 This is a major feature release of the Go client and touches some of the fundamental aspects of the inner workings of it.
