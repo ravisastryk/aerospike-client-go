@@ -25,6 +25,7 @@ import (
 	"time"
 
 	as "github.com/aerospike/aerospike-client-go/v7"
+	"github.com/aerospike/aerospike-client-go/v7/types"
 	ast "github.com/aerospike/aerospike-client-go/v7/types"
 	asub "github.com/aerospike/aerospike-client-go/v7/utils/buffer"
 
@@ -61,6 +62,39 @@ func isJsonObject(ifc interface{}) bool {
 var _ = gg.Describe("Aerospike", func() {
 
 	var actualClusterName string
+
+	gg.Describe("Client IndexErrorParser", func() {
+
+		gg.It("must parse IndexError response strings", func() {
+			type t struct {
+				r    string
+				code types.ResultCode
+				err  string
+			}
+
+			responses := []t{
+				{"invalid", types.PARSE_ERROR, "invalid"},
+				{"FAIL", types.SERVER_ERROR, "FAIL"},
+				{"FAiL", types.SERVER_ERROR, "FAiL"},
+				{"Error", types.SERVER_ERROR, "Error"},
+				{"ERROR", types.SERVER_ERROR, "ERROR"},
+				{"ERROR:200", types.INDEX_FOUND, "Index already exists"},
+				{"FAIL:201", types.INDEX_NOTFOUND, "Index not found"},
+				{"ERROR:200", types.INDEX_FOUND, "Index already exists"},
+				{"FAIL:201", types.INDEX_NOTFOUND, "Index not found"},
+				{"FAIL:201:some message from the server", types.INDEX_NOTFOUND, "some message from the server"},
+			}
+
+			for _, r := range responses {
+				err := as.ParseIndexErrorCode(r.r)
+				gm.Expect(err).To(gm.HaveOccurred())
+				gm.Expect(err.(*as.AerospikeError).Msg()).To(gm.Equal(r.err))
+				gm.Expect(err.Matches(r.code)).To(gm.BeTrue())
+			}
+
+		})
+
+	})
 
 	gg.Describe("Client Management", func() {
 
