@@ -16,6 +16,7 @@ package aerospike
 
 import (
 	"context"
+	"math/rand"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -1173,6 +1174,50 @@ func (clnt *ProxyClient) SetWhitelist(policy *AdminPolicy, roleName string, whit
 // Pass 0 for quota values for no limit.
 func (clnt *ProxyClient) SetQuotas(policy *AdminPolicy, roleName string, readQuota, writeQuota uint32) Error {
 	panic(notSupportedInProxyClient)
+}
+
+// RequestInfo sends an info command to the server. The proxy server should be configured to have allowed
+// the commands to go through.
+func (clnt *ProxyClient) RequestInfo(policy *InfoPolicy, commands ...string) (map[string]string, Error) {
+	policy = clnt.getUsableInfoPolicy(policy)
+
+	req := kvs.AerospikeRequestPayload{
+		Id:        rand.Uint32(),
+		Iteration: 1,
+		InfoRequest: &kvs.InfoRequest{
+			InfoPolicy: policy.grpc(),
+			Commands:   commands,
+		},
+	}
+
+	conn, err := clnt.grpcConn()
+	if err != nil {
+		return nil, err
+	}
+
+	client := kvs.NewInfoClient(conn)
+
+	ctx, cancel := policy.grpcDeadlineContext()
+	defer cancel()
+
+	res, gerr := client.Info(ctx, &req)
+	if gerr != nil {
+		return nil, newGrpcError(false, gerr, gerr.Error())
+	}
+
+	defer clnt.returnGrpcConnToPool(conn)
+
+	if res.GetStatus() != 0 {
+		return nil, newGrpcStatusError(res)
+	}
+
+	info := info{
+		msg: &types.Message{
+			Data: res.Payload,
+		},
+	}
+
+	return info.parseMultiResponse()
 }
 
 //-------------------------------------------------------
