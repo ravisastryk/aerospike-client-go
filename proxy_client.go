@@ -306,6 +306,7 @@ func (clnt *ProxyClient) createGrpcConn(noInterceptor bool) (*grpc.ClientConn, E
 // Close closes all Grpcclient connections to database server nodes.
 func (clnt *ProxyClient) Close() {
 	clnt.active.Set(false)
+	clnt.authInterceptor.close()
 }
 
 // IsConnected determines if the Grpcclient is ready to talk to the database server cluster.

@@ -68,6 +68,7 @@ func initTestVars() {
 	var buf bytes.Buffer
 	var err error
 
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	logger := log.New(&buf, "", log.LstdFlags|log.Lshortfile)
 	logger.SetOutput(os.Stdout)
 	asl.Logger.SetLogger(logger)
