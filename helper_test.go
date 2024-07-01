@@ -14,6 +14,14 @@
 
 package aerospike
 
+func ParseIndexErrorCode(response string) Error {
+	return parseIndexErrorCode(response)
+}
+
+func (e *AerospikeError) Msg() string {
+	return e.msg
+}
+
 func (clstr *Cluster) GetMasterNode(partition *Partition) (*Node, Error) {
 	return partition.getMasterNode(clstr)
 }
