@@ -1,11 +1,16 @@
 # Change History
 
-## July 2 2024: v7.5.1
+## July 17 2024: v7.6.0
 
-  Hotfix release.
+  Minor fix release.
+
+- **Improvements**
+  - [CLIENT-3045] Move proxy client build behind a build flag.
+    This removes the GRPC compilation and potential namespace conflict from the default build and moves it behind the compiler build flag "as_proxy".
 
 - **Fixes**
   - [CLIENT-3022] `Close()` throws a `nil` pointer error on `ProxyClient` without Authentication.
+  - [CLIENT-3044] Circular reference in between `Client`<->`Cluster` causes memory leak when the client is not closed manually.
 
 ## July 1 2024: v7.5.0
 
