@@ -1,3 +1,5 @@
+//go:build as_proxy
+
 // Copyright 2014-2022 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,6 +85,7 @@ func grpcClientFinalizer(f *ProxyClient) {
 
 // NewProxyClientWithPolicyAndHost generates a new ProxyClient with the specified ClientPolicy and
 // sets up the cluster using the provided hosts.
+// You must pass the tag 'as_proxy' to the compiler during build.
 // If the policy is nil, the default relevant policy will be used.
 // Pass "dns:///<address>:<port>" (note the 3 slashes) for dns load balancing,
 // automatically supported internally by grpc-go.

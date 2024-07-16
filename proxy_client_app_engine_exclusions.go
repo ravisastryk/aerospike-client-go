@@ -1,3 +1,5 @@
+//go:build !app_engine && as_proxy
+
 // Copyright 2014-2022 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,13 +16,13 @@
 
 package aerospike
 
-// ClientType determines the type of client to build.
-type ClientType int
-
-const (
-	// CTNative means: Create a native client.
-	CTNative ClientType = iota
-
-	// CTProxy means: Create a proxy client.
-	CTProxy
-)
+// QueryAggregate executes a Map/Reduce query and returns the results.
+// The query executor puts records on the channel from separate goroutines.
+// The caller can concurrently pop records off the channel through the
+// Recordset.Records channel.
+//
+// This method is only supported by Aerospike 3+ servers.
+// If the policy is nil, the default relevant policy will be used.
+func (clnt *ProxyClient) QueryAggregate(policy *QueryPolicy, statement *Statement, packageName, functionName string, functionArgs ...Value) (*Recordset, Error) {
+	panic("NOT SUPPORTED")
+}

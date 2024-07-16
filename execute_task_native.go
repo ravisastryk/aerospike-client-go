@@ -1,3 +1,5 @@
+//go:build !as_proxy
+
 // Copyright 2014-2022 Aerospike, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,13 +16,7 @@
 
 package aerospike
 
-// ClientType determines the type of client to build.
-type ClientType int
-
-const (
-	// CTNative means: Create a native client.
-	CTNative ClientType = iota
-
-	// CTProxy means: Create a proxy client.
-	CTProxy
-)
+func (etsk *ExecuteTask) grpcIsDone() (bool, Error) {
+	// should not be called out of the grpc proxy server context
+	panic("UNREACHABLE")
+}

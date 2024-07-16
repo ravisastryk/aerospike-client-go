@@ -263,19 +263,6 @@ var _ = gg.Describe("Aerospike", func() {
 		})
 	})
 
-	gg.Describe("Info operations on proxy client", func() {
-		gg.BeforeEach(func() {
-			if !*proxy {
-				gg.Skip("Only supported in grpc environment")
-			}
-		})
-
-		gg.It("must successfully call info command", func() {
-			_, err := client.(*as.ProxyClient).RequestInfo(nil)
-			gm.Expect(err).ToNot(gm.HaveOccurred())
-		})
-	})
-
 	gg.Describe("Data operations on native types", func() {
 		// connection data
 		var err error

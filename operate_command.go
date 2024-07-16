@@ -14,12 +14,6 @@
 
 package aerospike
 
-import (
-	"math/rand"
-
-	kvs "github.com/aerospike/aerospike-client-go/v7/proto/kvs"
-)
-
 type operateCommand struct {
 	readCommand
 
@@ -72,51 +66,4 @@ func (cmd *operateCommand) Execute() Error {
 
 func (cmd *operateCommand) transactionType() transactionType {
 	return ttOperate
-}
-
-func (cmd *operateCommand) ExecuteGRPC(clnt *ProxyClient) Error {
-	defer cmd.grpcPutBufferBack()
-
-	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())
-	if err != nil {
-		return err
-	}
-
-	req := kvs.AerospikeRequestPayload{
-		Id:          rand.Uint32(),
-		Iteration:   1,
-		Payload:     cmd.dataBuffer[:cmd.dataOffset],
-		WritePolicy: cmd.policy.grpc(),
-	}
-
-	conn, err := clnt.grpcConn()
-	if err != nil {
-		return err
-	}
-
-	client := kvs.NewKVSClient(conn)
-
-	ctx, cancel := cmd.policy.grpcDeadlineContext()
-	defer cancel()
-
-	res, gerr := client.Operate(ctx, &req)
-	if gerr != nil {
-		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
-	}
-
-	cmd.commandWasSent = true
-
-	defer clnt.returnGrpcConnToPool(conn)
-
-	if res.GetStatus() != 0 {
-		return newGrpcStatusError(res)
-	}
-
-	cmd.conn = newGrpcFakeConnection(res.GetPayload(), nil)
-	err = cmd.parseResult(cmd, cmd.conn)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

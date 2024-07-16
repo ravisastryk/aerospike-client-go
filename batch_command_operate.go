@@ -15,10 +15,8 @@
 package aerospike
 
 import (
-	"math/rand"
 	"reflect"
 
-	kvs "github.com/aerospike/aerospike-client-go/v7/proto/kvs"
 	"github.com/aerospike/aerospike-client-go/v7/types"
 	Buffer "github.com/aerospike/aerospike-client-go/v7/utils/buffer"
 )
@@ -302,69 +300,4 @@ func (cmd *batchCommandOperate) transactionType() transactionType {
 
 func (cmd *batchCommandOperate) generateBatchNodes(cluster *Cluster) ([]*batchNode, Error) {
 	return newBatchOperateNodeListIfcRetry(cluster, cmd.policy, cmd.records, cmd.sequenceAP, cmd.sequenceSC, cmd.batch)
-}
-
-func (cmd *batchCommandOperate) ExecuteGRPC(clnt *ProxyClient) Error {
-	defer cmd.grpcPutBufferBack()
-
-	err := cmd.prepareBuffer(cmd, cmd.policy.deadline())
-	if err != nil {
-		return err
-	}
-
-	req := kvs.AerospikeRequestPayload{
-		Id:          rand.Uint32(),
-		Iteration:   1,
-		Payload:     cmd.dataBuffer[:cmd.dataOffset],
-		ReadPolicy:  cmd.policy.grpc(),
-		WritePolicy: cmd.policy.grpc_write(),
-	}
-
-	conn, err := clnt.grpcConn()
-	if err != nil {
-		return err
-	}
-
-	client := kvs.NewKVSClient(conn)
-
-	ctx, cancel := cmd.policy.grpcDeadlineContext()
-	defer cancel()
-
-	streamRes, gerr := client.BatchOperate(ctx, &req)
-	if gerr != nil {
-		return newGrpcError(!cmd.isRead(), gerr, gerr.Error())
-	}
-
-	cmd.commandWasSent = true
-
-	readCallback := func() ([]byte, Error) {
-		if cmd.grpcEOS {
-			return nil, errGRPCStreamEnd
-		}
-
-		res, gerr := streamRes.Recv()
-		if gerr != nil {
-			e := newGrpcError(!cmd.isRead(), gerr)
-			return nil, e
-		}
-
-		if res.GetStatus() != 0 {
-			e := newGrpcStatusError(res)
-			return res.GetPayload(), e
-		}
-
-		cmd.grpcEOS = !res.GetHasNext()
-
-		return res.GetPayload(), nil
-	}
-
-	cmd.conn = newGrpcFakeConnection(nil, readCallback)
-	err = cmd.parseResult(cmd, cmd.conn)
-	if err != nil && err != errGRPCStreamEnd {
-		return err
-	}
-
-	clnt.returnGrpcConnToPool(conn)
-
-	return nil
 }
