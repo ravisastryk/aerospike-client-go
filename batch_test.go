@@ -37,7 +37,7 @@ var _ = gg.Describe("Aerospike", func() {
 		var set = randString(50)
 
 		gg.It("must return the result with same ordering", func() {
-			for _, keyCount := range []int{256, 1} {
+			for _, keyCount := range []int{256, 5, 4, 3, 2, 1} {
 				var keys []*as.Key
 				for i := 0; i < keyCount; i++ {
 					key, _ := as.NewKey(ns, set, i)

@@ -17,20 +17,22 @@ package aerospike
 type operateCommand struct {
 	readCommand
 
-	policy *WritePolicy
-	args   operateArgs
+	policy       *WritePolicy
+	args         operateArgs
+	useOpResults bool
 }
 
-func newOperateCommand(cluster *Cluster, policy *WritePolicy, key *Key, args operateArgs) (operateCommand, Error) {
+func newOperateCommand(cluster *Cluster, policy *WritePolicy, key *Key, args operateArgs, useOpResults bool) (operateCommand, Error) {
 	rdCommand, err := newReadCommand(cluster, &policy.BasePolicy, key, nil, args.partition)
 	if err != nil {
 		return operateCommand{}, err
 	}
 
 	return operateCommand{
-		readCommand: rdCommand,
-		policy:      policy,
-		args:        args,
+		readCommand:  rdCommand,
+		policy:       policy,
+		args:         args,
+		useOpResults: useOpResults,
 	}, nil
 }
 

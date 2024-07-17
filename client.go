@@ -712,12 +712,18 @@ func (clnt *Client) BatchExecute(policy *BatchPolicy, udfPolicy *BatchUDFPolicy,
 //
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *Client) Operate(policy *WritePolicy, key *Key, operations ...*Operation) (*Record, Error) {
+	return clnt.operate(policy, key, false, operations...)
+}
+
+// useOpResults is used in batch single nodes commands and should be true to return the right type for BatchOperate results
+func (clnt *Client) operate(policy *WritePolicy, key *Key, useOpResults bool, operations ...*Operation) (*Record, Error) {
+	// TODO: Remove this method in the next major release.
 	policy = clnt.getUsableWritePolicy(policy)
 	args, err := newOperateArgs(clnt.cluster, policy, key, operations)
 	if err != nil {
 		return nil, err
 	}
-	command, err := newOperateCommand(clnt.cluster, policy, key, args)
+	command, err := newOperateCommand(clnt.cluster, policy, key, args, useOpResults)
 	if err != nil {
 		return nil, err
 	}

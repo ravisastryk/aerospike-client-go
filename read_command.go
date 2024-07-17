@@ -195,8 +195,7 @@ func (cmd *readCommand) parseRecord(
 	var bins BinMap
 	receiveOffset := 0
 
-	type opList []interface{}
-	_, isOperate := ifc.(*operateCommand)
+	opCmd, isOperate := ifc.(*operateCommand)
 	var binNamesSet []string
 
 	// There can be fields in the response (setname etc).
@@ -233,12 +232,12 @@ func (cmd *readCommand) parseRecord(
 		if isOperate {
 			// for operate list command results
 			if prev, exists := bins[name]; exists {
-				if res, ok := prev.(opList); ok {
+				if res, ok := prev.(OpResults); ok {
 					// List already exists.  Add to it.
 					bins[name] = append(res, value)
 				} else {
 					// Make a list to store all values.
-					bins[name] = opList{prev, value}
+					bins[name] = OpResults{prev, value}
 					binNamesSet = append(binNamesSet, name)
 				}
 			} else {
@@ -249,9 +248,10 @@ func (cmd *readCommand) parseRecord(
 		}
 	}
 
-	if isOperate {
+	// TODO: Remove this in the next major release
+	if isOperate && !opCmd.useOpResults {
 		for i := range binNamesSet {
-			bins[binNamesSet[i]] = []interface{}(bins[binNamesSet[i]].(opList))
+			bins[binNamesSet[i]] = []interface{}(bins[binNamesSet[i]].(OpResults))
 		}
 	}
 

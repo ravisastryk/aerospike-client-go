@@ -1010,263 +1010,267 @@ var _ = gg.Describe("Aerospike", func() {
 
 		gg.Context("Batch Exists operations", func() {
 			bin := as.NewBin("Aerospike", rand.Intn(math.MaxInt16))
-			const keyCount = 2048
+			var keyCount = []int{1, 2048}
 
 			gg.BeforeEach(func() {
 			})
 
-			for _, useInline := range []bool{true, false} {
-				gg.It(fmt.Sprintf("must return the result with same ordering. AllowInline: %v", useInline), func() {
-					var exists []bool
-					keys := []*as.Key{}
+			for _, keyCount := range keyCount {
+				for _, useInline := range []bool{true, false} {
+					gg.It(fmt.Sprintf("must return the result with same ordering. KeyCount: %d, AllowInline: %v", keyCount, useInline), func() {
+						var exists []bool
+						keys := []*as.Key{}
 
-					for i := 0; i < keyCount; i++ {
-						key, err := as.NewKey(ns, set, randString(50))
-						gm.Expect(err).ToNot(gm.HaveOccurred())
-						keys = append(keys, key)
-
-						// if key shouldExist == true, put it in the DB
-						if i%2 == 0 {
-							err = client.PutBins(wpolicy, key, bin)
+						for i := 0; i < keyCount; i++ {
+							key, err := as.NewKey(ns, set, randString(50))
 							gm.Expect(err).ToNot(gm.HaveOccurred())
+							keys = append(keys, key)
 
-							// make sure they exists in the DB
-							exists, err := client.Exists(rpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-							gm.Expect(exists).To(gm.Equal(true))
+							// if key shouldExist == true, put it in the DB
+							if i%2 == 0 {
+								err = client.PutBins(wpolicy, key, bin)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+
+								// make sure they exists in the DB
+								exists, err := client.Exists(rpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+								gm.Expect(exists).To(gm.Equal(true))
+							}
 						}
-					}
 
-					bpolicy.AllowInline = useInline
-					exists, err = client.BatchExists(bpolicy, keys)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					gm.Expect(len(exists)).To(gm.Equal(len(keys)))
-					for idx, keyExists := range exists {
-						gm.Expect(keyExists).To(gm.Equal(idx%2 == 0))
-					}
-				})
+						bpolicy.AllowInline = useInline
+						exists, err = client.BatchExists(bpolicy, keys)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						gm.Expect(len(exists)).To(gm.Equal(len(keys)))
+						for idx, keyExists := range exists {
+							gm.Expect(keyExists).To(gm.Equal(idx%2 == 0))
+						}
+					})
+				}
 			}
 
 		}) // Batch Exists context
 
 		gg.Context("Batch Get operations", func() {
 			bin := as.NewBin("Aerospike", rand.Int())
-			const keyCount = 2048
+			var keyCount = []int{1, 2048}
 
 			gg.BeforeEach(func() {
 			})
 
-			for _, useInline := range []bool{true, false} {
-				gg.It(fmt.Sprintf("must return the records with same ordering as keys. AllowInline: %v", useInline), func() {
-					binRedundant := as.NewBin("Redundant", "Redundant")
+			for _, keyCount := range keyCount {
+				for _, useInline := range []bool{true, false} {
+					gg.It(fmt.Sprintf("must return the records with same ordering as keys. KeyCount: %d, AllowInline: %v", keyCount, useInline), func() {
+						binRedundant := as.NewBin("Redundant", "Redundant")
 
-					var records []*as.Record
-					type existence struct {
-						key         *as.Key
-						shouldExist bool // set randomly and checked against later
-					}
+						var records []*as.Record
+						type existence struct {
+							key         *as.Key
+							shouldExist bool // set randomly and checked against later
+						}
 
-					exList := make([]existence, 0, keyCount)
-					keys := make([]*as.Key, 0, keyCount)
+						exList := make([]existence, 0, keyCount)
+						keys := make([]*as.Key, 0, keyCount)
 
-					for i := 0; i < keyCount; i++ {
-						key, err := as.NewKey(ns, set, randString(50))
+						for i := 0; i < keyCount; i++ {
+							key, err := as.NewKey(ns, set, randString(50))
+							gm.Expect(err).ToNot(gm.HaveOccurred())
+							e := existence{key: key, shouldExist: rand.Intn(100) > 50}
+							exList = append(exList, e)
+							keys = append(keys, key)
+
+							// if key shouldExist == true, put it in the DB
+							if e.shouldExist {
+								err = client.PutBins(wpolicy, key, bin, binRedundant)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+
+								// make sure they exists in the DB
+								rec, err := client.Get(rpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+								gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Bins[binRedundant.Name]).To(gm.Equal(binRedundant.Value.GetObject()))
+							} else {
+								// make sure they exists in the DB
+								exists, err := client.Exists(rpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+								gm.Expect(exists).To(gm.Equal(false))
+							}
+						}
+
+						brecords := make([]*as.BatchRead, len(keys))
+						for i := range keys {
+							brecords[i] = &as.BatchRead{
+								BatchRecord: as.BatchRecord{
+									Key: keys[i],
+								},
+								ReadAllBins: true,
+							}
+						}
+						bpolicy.AllowInline = useInline
+						err = client.BatchGetComplex(bpolicy, brecords)
 						gm.Expect(err).ToNot(gm.HaveOccurred())
-						e := existence{key: key, shouldExist: rand.Intn(100) > 50}
-						exList = append(exList, e)
-						keys = append(keys, key)
-
-						// if key shouldExist == true, put it in the DB
-						if e.shouldExist {
-							err = client.PutBins(wpolicy, key, bin, binRedundant)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-
-							// make sure they exists in the DB
-							rec, err := client.Get(rpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-							gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Bins[binRedundant.Name]).To(gm.Equal(binRedundant.Value.GetObject()))
-						} else {
-							// make sure they exists in the DB
-							exists, err := client.Exists(rpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-							gm.Expect(exists).To(gm.Equal(false))
+						for idx, rec := range brecords {
+							if exList[idx].shouldExist {
+								gm.Expect(len(rec.Record.Bins)).To(gm.Equal(2))
+								gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec.Record).To(gm.BeNil())
+							}
 						}
-					}
 
-					brecords := make([]*as.BatchRead, len(keys))
-					for i := range keys {
-						brecords[i] = &as.BatchRead{
-							BatchRecord: as.BatchRecord{
-								Key: keys[i],
-							},
-							ReadAllBins: true,
+						brecords = make([]*as.BatchRead, len(keys))
+						for i := range keys {
+							brecords[i] = &as.BatchRead{
+								BatchRecord: as.BatchRecord{
+									Key: keys[i],
+								},
+								ReadAllBins: false,
+								BinNames:    []string{bin.Name},
+							}
 						}
-					}
-					bpolicy.AllowInline = useInline
-					err = client.BatchGetComplex(bpolicy, brecords)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					for idx, rec := range brecords {
-						if exList[idx].shouldExist {
-							gm.Expect(len(rec.Record.Bins)).To(gm.Equal(2))
-							gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec.Record).To(gm.BeNil())
-						}
-					}
-
-					brecords = make([]*as.BatchRead, len(keys))
-					for i := range keys {
-						brecords[i] = &as.BatchRead{
-							BatchRecord: as.BatchRecord{
-								Key: keys[i],
-							},
-							ReadAllBins: false,
-							BinNames:    []string{bin.Name},
-						}
-					}
-					err = client.BatchGetComplex(bpolicy, brecords)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					for idx, rec := range brecords {
-						if exList[idx].shouldExist {
-							gm.Expect(len(rec.Record.Bins)).To(gm.Equal(1))
-							gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec.Record).To(gm.BeNil())
-						}
-					}
-
-					records, err = client.BatchGet(bpolicy, keys)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					gm.Expect(len(records)).To(gm.Equal(len(keys)))
-					for idx, rec := range records {
-						if exList[idx].shouldExist {
-							gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec).To(gm.BeNil())
-						}
-					}
-
-					records, err = client.BatchGet(bpolicy, keys, bin.Name)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					gm.Expect(len(records)).To(gm.Equal(len(keys)))
-					for idx, rec := range records {
-						if exList[idx].shouldExist {
-							// only bin1 has been requested
-							gm.Expect(rec.Bins[binRedundant.Name]).To(gm.BeNil())
-							gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec).To(gm.BeNil())
-						}
-					}
-				})
-
-				gg.It(fmt.Sprintf("must return the records with same ordering as keys via Batch Complex Protocol. AllowInline: %v", useInline), func() {
-					binRedundant := as.NewBin("Redundant", "Redundant")
-
-					type existence struct {
-						key         *as.Key
-						shouldExist bool // set randomly and checked against later
-					}
-
-					exList := make([]existence, 0, keyCount)
-					keys := make([]*as.Key, 0, keyCount)
-
-					for i := 0; i < keyCount; i++ {
-						key, err := as.NewKey(ns, set, randString(50))
+						err = client.BatchGetComplex(bpolicy, brecords)
 						gm.Expect(err).ToNot(gm.HaveOccurred())
-						e := existence{key: key, shouldExist: rand.Intn(100) > 50}
-						exList = append(exList, e)
-						keys = append(keys, key)
+						for idx, rec := range brecords {
+							if exList[idx].shouldExist {
+								gm.Expect(len(rec.Record.Bins)).To(gm.Equal(1))
+								gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec.Record).To(gm.BeNil())
+							}
+						}
 
-						// if key shouldExist == true, put it in the DB
-						if e.shouldExist {
-							err = client.PutBins(wpolicy, key, bin, binRedundant)
+						records, err = client.BatchGet(bpolicy, keys)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						gm.Expect(len(records)).To(gm.Equal(len(keys)))
+						for idx, rec := range records {
+							if exList[idx].shouldExist {
+								gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec).To(gm.BeNil())
+							}
+						}
+
+						records, err = client.BatchGet(bpolicy, keys, bin.Name)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						gm.Expect(len(records)).To(gm.Equal(len(keys)))
+						for idx, rec := range records {
+							if exList[idx].shouldExist {
+								// only bin1 has been requested
+								gm.Expect(rec.Bins[binRedundant.Name]).To(gm.BeNil())
+								gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec).To(gm.BeNil())
+							}
+						}
+					})
+
+					gg.It(fmt.Sprintf("must return the records with same ordering as keys via Batch Complex Protocol. keyCount: %d, AllowInline: %v", keyCount, useInline), func() {
+						binRedundant := as.NewBin("Redundant", "Redundant")
+
+						type existence struct {
+							key         *as.Key
+							shouldExist bool // set randomly and checked against later
+						}
+
+						exList := make([]existence, 0, keyCount)
+						keys := make([]*as.Key, 0, keyCount)
+
+						for i := 0; i < keyCount; i++ {
+							key, err := as.NewKey(ns, set, randString(50))
 							gm.Expect(err).ToNot(gm.HaveOccurred())
+							e := existence{key: key, shouldExist: rand.Intn(100) > 50}
+							exList = append(exList, e)
+							keys = append(keys, key)
 
-							// make sure they exists in the DB
-							rec, err := client.Get(rpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-							gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Bins[binRedundant.Name]).To(gm.Equal(binRedundant.Value.GetObject()))
-						} else {
-							// make sure they exists in the DB
-							exists, err := client.Exists(rpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-							gm.Expect(exists).To(gm.Equal(false))
-						}
-					}
+							// if key shouldExist == true, put it in the DB
+							if e.shouldExist {
+								err = client.PutBins(wpolicy, key, bin, binRedundant)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
 
-					brecords := make([]*as.BatchRead, len(keys))
-					for i := range keys {
-						brecords[i] = &as.BatchRead{
-							BatchRecord: as.BatchRecord{
-								Key: keys[i],
-							},
-							ReadAllBins: true,
+								// make sure they exists in the DB
+								rec, err := client.Get(rpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+								gm.Expect(rec.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Bins[binRedundant.Name]).To(gm.Equal(binRedundant.Value.GetObject()))
+							} else {
+								// make sure they exists in the DB
+								exists, err := client.Exists(rpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+								gm.Expect(exists).To(gm.Equal(false))
+							}
 						}
-					}
-					bpolicy.AllowInline = useInline
-					err = client.BatchGetComplex(bpolicy, brecords)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					for idx, rec := range brecords {
-						if exList[idx].shouldExist {
-							gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec.Record).To(gm.BeNil())
-						}
-					}
 
-					brecords = make([]*as.BatchRead, len(keys))
-					for i := range keys {
-						brecords[i] = &as.BatchRead{
-							BatchRecord: as.BatchRecord{
-								Key: keys[i],
-							},
-							ReadAllBins: false,
-							BinNames:    []string{"Aerospike", "Redundant"},
+						brecords := make([]*as.BatchRead, len(keys))
+						for i := range keys {
+							brecords[i] = &as.BatchRead{
+								BatchRecord: as.BatchRecord{
+									Key: keys[i],
+								},
+								ReadAllBins: true,
+							}
 						}
-					}
-					bpolicy.AllowInline = useInline
-					err = client.BatchGetComplex(bpolicy, brecords)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					for idx, rec := range brecords {
-						if exList[idx].shouldExist {
-							gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
-							gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec.Record).To(gm.BeNil())
+						bpolicy.AllowInline = useInline
+						err = client.BatchGetComplex(bpolicy, brecords)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						for idx, rec := range brecords {
+							if exList[idx].shouldExist {
+								gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec.Record).To(gm.BeNil())
+							}
 						}
-					}
 
-					brecords = make([]*as.BatchRead, len(keys))
-					for i := range keys {
-						brecords[i] = &as.BatchRead{
-							BatchRecord: as.BatchRecord{
-								Key: keys[i],
-							},
-							ReadAllBins: false,
-							BinNames:    nil,
+						brecords = make([]*as.BatchRead, len(keys))
+						for i := range keys {
+							brecords[i] = &as.BatchRead{
+								BatchRecord: as.BatchRecord{
+									Key: keys[i],
+								},
+								ReadAllBins: false,
+								BinNames:    []string{"Aerospike", "Redundant"},
+							}
 						}
-					}
-					bpolicy.AllowInline = useInline
-					err = client.BatchGetComplex(bpolicy, brecords)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					for idx, rec := range brecords {
-						if exList[idx].shouldExist {
-							gm.Expect(len(rec.Record.Bins)).To(gm.Equal(0))
-							gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
-						} else {
-							gm.Expect(rec.Record).To(gm.BeNil())
+						bpolicy.AllowInline = useInline
+						err = client.BatchGetComplex(bpolicy, brecords)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						for idx, rec := range brecords {
+							if exList[idx].shouldExist {
+								gm.Expect(rec.Record.Bins[bin.Name]).To(gm.Equal(bin.Value.GetObject()))
+								gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec.Record).To(gm.BeNil())
+							}
 						}
-					}
 
-				})
+						brecords = make([]*as.BatchRead, len(keys))
+						for i := range keys {
+							brecords[i] = &as.BatchRead{
+								BatchRecord: as.BatchRecord{
+									Key: keys[i],
+								},
+								ReadAllBins: false,
+								BinNames:    nil,
+							}
+						}
+						bpolicy.AllowInline = useInline
+						err = client.BatchGetComplex(bpolicy, brecords)
+						gm.Expect(err).ToNot(gm.HaveOccurred())
+						for idx, rec := range brecords {
+							if exList[idx].shouldExist {
+								gm.Expect(len(rec.Record.Bins)).To(gm.Equal(0))
+								gm.Expect(rec.Record.Key).To(gm.Equal(keys[idx]))
+							} else {
+								gm.Expect(rec.Record).To(gm.BeNil())
+							}
+						}
+
+					})
+				}
 			}
 		}) // Batch Get context
 
@@ -1297,149 +1301,151 @@ var _ = gg.Describe("Aerospike", func() {
 		gg.Context("BatchOperate", func() {
 
 			gg.It("must execute BatchGetOperate with Operations", func() {
-				const keyCount = 10
 				const listSize = 10
 				const cdtBinName = "cdtBin"
 
-				keys := make([]*as.Key, 10)
-				for i := 0; i < keyCount; i++ {
-					keys[i], err = as.NewKey(ns, set, randString(10))
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-				}
-
-				// First Part: For CDTs
-				list := []interface{}{}
-				for j, key := range keys {
-					for i := 1; i <= listSize; i++ {
-						list = append(list, i*100)
-
-						sz, err := client.Operate(wpolicy, key, as.ListAppendOp(cdtBinName, j+i*100))
+				for keyCount := 1; keyCount < 10; keyCount++ {
+					keys := make([]*as.Key, keyCount)
+					for i := 0; i < keyCount; i++ {
+						keys[i], err = as.NewKey(ns, set, randString(10))
 						gm.Expect(err).ToNot(gm.HaveOccurred())
-						gm.Expect(sz.Bins[cdtBinName]).To(gm.Equal(i))
+					}
+
+					// First Part: For CDTs
+					list := []interface{}{}
+					for j, key := range keys {
+						for i := 1; i <= listSize; i++ {
+							list = append(list, i*100)
+
+							sz, err := client.Operate(wpolicy, key, as.ListAppendOp(cdtBinName, j+i*100))
+							gm.Expect(err).ToNot(gm.HaveOccurred())
+							gm.Expect(sz.Bins[cdtBinName]).To(gm.Equal(i))
+						}
+					}
+
+					records, err := client.BatchGetOperate(bpolicy, keys,
+						as.ListSizeOp(cdtBinName),
+						as.ListGetByIndexOp(cdtBinName, -1, as.ListReturnTypeValue),
+						as.ListGetByIndexOp(cdtBinName, 0, as.ListReturnTypeValue),
+						as.ListGetByIndexOp(cdtBinName, 2, as.ListReturnTypeValue),
+					)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					for i, key := range keys {
+						rec := records[i]
+						gm.Expect(rec.Key.Digest()).To(gm.Equal(key.Digest()))
+						gm.Expect(rec.Bins[cdtBinName]).To(gm.Equal(as.OpResults{listSize, i + listSize*100, i + 100, i + 300}))
 					}
 				}
-
-				records, err := client.BatchGetOperate(bpolicy, keys,
-					as.ListSizeOp(cdtBinName),
-					as.ListGetByIndexOp(cdtBinName, -1, as.ListReturnTypeValue),
-					as.ListGetByIndexOp(cdtBinName, 0, as.ListReturnTypeValue),
-					as.ListGetByIndexOp(cdtBinName, 2, as.ListReturnTypeValue),
-				)
-				gm.Expect(err).ToNot(gm.HaveOccurred())
-
-				for i, key := range keys {
-					rec := records[i]
-					gm.Expect(rec.Key.Digest()).To(gm.Equal(key.Digest()))
-					gm.Expect(rec.Bins[cdtBinName]).To(gm.Equal(as.OpResults{listSize, i + listSize*100, i + 100, i + 300}))
-				}
-
 			})
 
 			gg.It("must execute BatchGetComplex with Operations", func() {
-				const keyCount = 10
 				const listSize = 10
 				const cdtBinName = "cdtBin"
 
-				keys := make([]*as.Key, 10)
-				for i := 0; i < keyCount; i++ {
-					keys[i], err = as.NewKey(ns, set, randString(10))
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-				}
-
-				brecords := make([]*as.BatchRead, len(keys))
-				for i := range keys {
-					brecords[i] = &as.BatchRead{
-						BatchRecord: as.BatchRecord{
-							Key: keys[i],
-						},
-						ReadAllBins: false, // just to check if the internal flags are set correctly regardless
-						Ops: []*as.Operation{
-							as.ListSizeOp(cdtBinName),
-							as.ListGetByIndexOp(cdtBinName, -1, as.ListReturnTypeValue),
-							as.ListGetByIndexOp(cdtBinName, 0, as.ListReturnTypeValue),
-							as.ListGetByIndexOp(cdtBinName, 2, as.ListReturnTypeValue),
-						},
-					}
-				}
-
-				// First Part: For CDTs
-				list := []interface{}{}
-				for j, key := range keys {
-					for i := 1; i <= listSize; i++ {
-						list = append(list, i*100)
-
-						sz, err := client.Operate(wpolicy, key, as.ListAppendOp(cdtBinName, j+i*100))
+				for keyCount := 1; keyCount < 10; keyCount++ {
+					keys := make([]*as.Key, keyCount)
+					for i := 0; i < keyCount; i++ {
+						keys[i], err = as.NewKey(ns, set, randString(10))
 						gm.Expect(err).ToNot(gm.HaveOccurred())
-						gm.Expect(sz.Bins[cdtBinName]).To(gm.Equal(i))
+					}
+
+					brecords := make([]*as.BatchRead, len(keys))
+					for i := range keys {
+						brecords[i] = &as.BatchRead{
+							BatchRecord: as.BatchRecord{
+								Key: keys[i],
+							},
+							ReadAllBins: false, // just to check if the internal flags are set correctly regardless
+							Ops: []*as.Operation{
+								as.ListSizeOp(cdtBinName),
+								as.ListGetByIndexOp(cdtBinName, -1, as.ListReturnTypeValue),
+								as.ListGetByIndexOp(cdtBinName, 0, as.ListReturnTypeValue),
+								as.ListGetByIndexOp(cdtBinName, 2, as.ListReturnTypeValue),
+							},
+						}
+					}
+
+					// First Part: For CDTs
+					list := []interface{}{}
+					for j, key := range keys {
+						for i := 1; i <= listSize; i++ {
+							list = append(list, i*100)
+
+							sz, err := client.Operate(wpolicy, key, as.ListAppendOp(cdtBinName, j+i*100))
+							gm.Expect(err).ToNot(gm.HaveOccurred())
+							gm.Expect(sz.Bins[cdtBinName]).To(gm.Equal(i))
+						}
+					}
+
+					err = client.BatchGetComplex(bpolicy, brecords)
+					gm.Expect(err).ToNot(gm.HaveOccurred())
+
+					for i, key := range keys {
+						rec := brecords[i].Record
+						gm.Expect(rec.Key.Digest()).To(gm.Equal(key.Digest()))
+						gm.Expect(rec.Bins[cdtBinName]).To(gm.Equal(as.OpResults{listSize, i + listSize*100, i + 100, i + 300}))
 					}
 				}
-
-				err = client.BatchGetComplex(bpolicy, brecords)
-				gm.Expect(err).ToNot(gm.HaveOccurred())
-
-				for i, key := range keys {
-					rec := brecords[i].Record
-					gm.Expect(rec.Key.Digest()).To(gm.Equal(key.Digest()))
-					gm.Expect(rec.Bins[cdtBinName]).To(gm.Equal(as.OpResults{listSize, i + listSize*100, i + 100, i + 300}))
-				}
-
 			})
 		})
 
 		gg.Context("Batch Get Header operations", func() {
 			bin := as.NewBin("Aerospike", rand.Int())
-			const keyCount = 1024
+			var keyCount = []int{1, 1024}
 
 			gg.BeforeEach(func() {
 			})
 
-			for _, useInline := range []bool{true, false} {
-				gg.It(fmt.Sprintf("must return the record headers with same ordering as keys. AllowInline: %v", useInline), func() {
-					var records []*as.Record
-					type existence struct {
-						key         *as.Key
-						shouldExist bool // set randomly and checked against later
-					}
+			for _, keyCount := range keyCount {
+				for _, useInline := range []bool{true, false} {
+					gg.It(fmt.Sprintf("must return the record headers with same ordering as keys. KeyCount: %d, AllowInline: %v", keyCount, useInline), func() {
+						var records []*as.Record
+						type existence struct {
+							key         *as.Key
+							shouldExist bool // set randomly and checked against later
+						}
 
-					exList := []existence{}
-					keys := []*as.Key{}
+						exList := []existence{}
+						keys := []*as.Key{}
 
-					for i := 0; i < keyCount; i++ {
-						key, err := as.NewKey(ns, set, randString(50))
+						for i := 0; i < keyCount; i++ {
+							key, err := as.NewKey(ns, set, randString(50))
+							gm.Expect(err).ToNot(gm.HaveOccurred())
+							e := existence{key: key, shouldExist: rand.Intn(100) > 50}
+							exList = append(exList, e)
+							keys = append(keys, key)
+
+							// if key shouldExist == true, put it in the DB
+							if e.shouldExist {
+								err = client.PutBins(wpolicy, key, bin)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+
+								// update generation
+								err = client.Touch(wpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+
+								// make sure they exists in the DB
+								exists, err := client.Exists(rpolicy, key)
+								gm.Expect(err).ToNot(gm.HaveOccurred())
+								gm.Expect(exists).To(gm.Equal(true))
+							}
+						}
+
+						bpolicy.AllowInline = useInline
+						records, err = client.BatchGetHeader(bpolicy, keys)
 						gm.Expect(err).ToNot(gm.HaveOccurred())
-						e := existence{key: key, shouldExist: rand.Intn(100) > 50}
-						exList = append(exList, e)
-						keys = append(keys, key)
-
-						// if key shouldExist == true, put it in the DB
-						if e.shouldExist {
-							err = client.PutBins(wpolicy, key, bin)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-
-							// update generation
-							err = client.Touch(wpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-
-							// make sure they exists in the DB
-							exists, err := client.Exists(rpolicy, key)
-							gm.Expect(err).ToNot(gm.HaveOccurred())
-							gm.Expect(exists).To(gm.Equal(true))
+						gm.Expect(len(records)).To(gm.Equal(len(keys)))
+						for idx, rec := range records {
+							if exList[idx].shouldExist {
+								gm.Expect(rec.Bins[bin.Name]).To(gm.BeNil())
+								gm.Expect(rec.Generation).To(gm.Equal(uint32(2)))
+							} else {
+								gm.Expect(rec).To(gm.BeNil())
+							}
 						}
-					}
-
-					bpolicy.AllowInline = useInline
-					records, err = client.BatchGetHeader(bpolicy, keys)
-					gm.Expect(err).ToNot(gm.HaveOccurred())
-					gm.Expect(len(records)).To(gm.Equal(len(keys)))
-					for idx, rec := range records {
-						if exList[idx].shouldExist {
-							gm.Expect(rec.Bins[bin.Name]).To(gm.BeNil())
-							gm.Expect(rec.Generation).To(gm.Equal(uint32(2)))
-						} else {
-							gm.Expect(rec).To(gm.BeNil())
-						}
-					}
-				})
+					})
+				}
 			}
 		}) // Batch Get Header context
 

@@ -231,7 +231,7 @@ func (cmd *batchCommandGet) executeSingle(client clientIfc) Error {
 					return newError(types.PARAMETER_ERROR, "Write operations not allowed in batch read").setNode(cmd.node)
 				}
 			}
-			cmd.records[offset], err = client.Operate(cmd.policy.toWritePolicy(), cmd.keys[offset], cmd.ops...)
+			cmd.records[offset], err = client.operate(cmd.policy.toWritePolicy(), cmd.keys[offset], true, cmd.ops...)
 		} else if (cmd.readAttr & _INFO1_NOBINDATA) == _INFO1_NOBINDATA {
 			cmd.records[offset], err = client.GetHeader(&cmd.policy.BasePolicy, cmd.keys[offset])
 		} else {

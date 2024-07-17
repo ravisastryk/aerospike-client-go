@@ -33,6 +33,8 @@ type batcher interface {
 
 type clientIfc interface {
 	ClientIfc
+
+	operate(*WritePolicy, *Key, bool, ...*Operation) (*Record, Error)
 	execute(policy *WritePolicy, key *Key, packageName string, functionName string, args ...Value) (*Record, Error)
 }
 

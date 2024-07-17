@@ -14,7 +14,9 @@
 
 package aerospike
 
-import "github.com/aerospike/aerospike-client-go/v7/types"
+import (
+	"github.com/aerospike/aerospike-client-go/v7/types"
+)
 
 type batchIndexCommandGet struct {
 	batchCommandGet
@@ -78,7 +80,7 @@ func (cmd *batchIndexCommandGet) executeSingle(client clientIfc) Error {
 		} else {
 			ops = br.Ops
 		}
-		res, err := client.Operate(cmd.policy.toWritePolicy(), br.Key, ops...)
+		res, err := client.operate(cmd.policy.toWritePolicy(), br.Key, true, ops...)
 		cmd.indexRecords[i].setRecord(res)
 		if err != nil {
 			cmd.indexRecords[i].setRawError(err)

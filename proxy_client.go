@@ -776,13 +776,17 @@ func (clnt *ProxyClient) BatchExecute(policy *BatchPolicy, udfPolicy *BatchUDFPo
 //
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) Operate(policy *WritePolicy, key *Key, operations ...*Operation) (*Record, Error) {
+	return clnt.operate(policy, key, false, operations...)
+}
+
+func (clnt *ProxyClient) operate(policy *WritePolicy, key *Key, useOpResults bool, operations ...*Operation) (*Record, Error) {
 	policy = clnt.getUsableWritePolicy(policy)
 	args, err := newOperateArgs(nil, policy, key, operations)
 	if err != nil {
 		return nil, err
 	}
 
-	command, err := newOperateCommand(nil, policy, key, args)
+	command, err := newOperateCommand(nil, policy, key, args, useOpResults)
 	if err != nil {
 		return nil, err
 	}
