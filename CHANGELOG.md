@@ -11,6 +11,8 @@
 - **Fixes**
   - [CLIENT-3022] `Close()` throws a `nil` pointer error on `ProxyClient` without Authentication.
   - [CLIENT-3044] Circular reference in between `Client`<->`Cluster` causes memory leak when the client is not closed manually.
+  - [CLIENT-3047] Fix pointer value assignment in baseMultiCommand.parseKey (#443).
+  - [CLIENT-3048] Use precomputed ops variable in batchIndexCommandGet.executeSingle (#442).
 
 ## July 1 2024: v7.5.0
 
