@@ -176,7 +176,7 @@ To make the library both flexible and fast, we had to integrate the reflection A
 <a name="proxy-client--dbaas"></a>
 ## Proxy Client / DBAAS
 
-To compile the client for the proxy server in out database as a service environment, pass `-tags as_proxy` to the compiler on build.
+To compile the client for the proxy server in our database-as-a-service (dbaas) environment, pass `-tags as_proxy` to the compiler on build.
 
 <a name="license"></a>
 ## License
