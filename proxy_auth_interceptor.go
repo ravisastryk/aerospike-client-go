@@ -93,7 +93,7 @@ func (interceptor *authInterceptor) tokenRefresher() {
 	// provide 5 secs of buffer before expiry due to network latency
 	wait := interceptor.expiry.Sub(time.Now()) - 5*time.Second
 	ticker := time.NewTicker(wait)
-	// defer ticker.Close()
+	defer ticker.Stop()
 
 	for {
 		ticker.Reset(wait)

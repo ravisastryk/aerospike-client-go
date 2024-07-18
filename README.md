@@ -2,6 +2,7 @@
 
 [![Aerospike Client Go](https://goreportcard.com/badge/github.com/aerospike/aerospike-client-go/v7)](https://goreportcard.com/report/github.com/aerospike/aerospike-client-go/v7)
 [![Godoc](https://godoc.org/github.com/aerospike/aerospike-client-go/v7?status.svg)](https://pkg.go.dev/github.com/aerospike/aerospike-client-go/v7)
+[![Tests](https://github.com/aerospike/aerospike-client-go/actions/workflows/build.yml/badge.svg?branch=v7&event=push)](github.com/aerospike/aerospike-client-go/actions)
 
 An Aerospike library for Go.
 
