@@ -1,6 +1,6 @@
 # Change History
 
-## July 17 2024: v7.6.0
+## July 19 2024: v7.6.0
 
   Minor fix release.
 
@@ -14,6 +14,7 @@
   - [CLIENT-3046] Wrong return type in Single Key Batch Operations with Multiple Ops per Bin.
   - [CLIENT-3047] Fix pointer value assignment in baseMultiCommand.parseKey (#443).
   - [CLIENT-3048] Use precomputed ops variable in batchIndexCommandGet.executeSingle (#442).
+  - [CLIENT-3049] Use a specialized pool for grpc conns to prevent premature reaping.
 
 ## July 1 2024: v7.5.0
 
