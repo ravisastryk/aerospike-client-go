@@ -117,7 +117,7 @@ Using [gopkg.in](https://gopkg.in/) is also supported: `go get -u gopkg.in/aeros
 
 - To run a go program directly: ```go run <filename.go>```
 - to build:  ```go build -o <output> <filename.go>```
-- example: ```go build -o benchmark tools/benchmark/benchmark.go```
+- example: ```go build -tags as_proxy -o benchmark tools/benchmark/benchmark.go```
 
 <a name="Performance"></a>
 ## Performance Tweaking

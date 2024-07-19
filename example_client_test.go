@@ -25,7 +25,7 @@ import (
 )
 
 func ExampleClient_Add() {
-	key, err := as.NewKey("test", "test", "addkey")
+	key, err := as.NewKey(*namespace, "test", "addkey")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func ExampleClient_Add() {
 }
 
 func ExampleClient_Append() {
-	key, err := as.NewKey("test", "test", "appendkey")
+	key, err := as.NewKey(*namespace, "test", "appendkey")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -57,7 +57,7 @@ func ExampleListIter_time() {
 	now2 := time.Unix(123123124, 0)
 	now3 := time.Unix(123123125, 0)
 	var v as.Value = as.NewValue(myListTime([]time.Time{now1, now2, now3}))
-	key, err := as.NewKey("test", "test", 1)
+	key, err := as.NewKey(*namespace, "test", 1)
 	if err != nil {
 		log.Fatal(err)
 	}

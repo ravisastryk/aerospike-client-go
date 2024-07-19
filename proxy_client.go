@@ -40,7 +40,7 @@ const notSupportedInProxyClient = "NOT SUPPORTED IN THE PROXY CLIENT"
 type ProxyClient struct {
 	// only for GRPC
 	clientPolicy ClientPolicy
-	grpcConnPool *sync.Pool
+	grpcConnPool *grpcConnectionHeap
 	grpcHost     *Host
 	dialOptions  []grpc.DialOption
 
@@ -96,7 +96,7 @@ func NewProxyClientWithPolicyAndHost(policy *ClientPolicy, host *Host, dialOptio
 
 	grpcClient := &ProxyClient{
 		clientPolicy: *policy,
-		grpcConnPool: new(sync.Pool),
+		grpcConnPool: newGrpcConnectionHeap(policy.ConnectionQueueSize),
 		grpcHost:     host,
 		dialOptions:  dialOptions,
 
@@ -265,7 +265,7 @@ func (clnt *ProxyClient) setAuthToken(token string) {
 func (clnt *ProxyClient) grpcConn() (*grpc.ClientConn, Error) {
 	pconn := clnt.grpcConnPool.Get()
 	if pconn != nil {
-		return pconn.(*grpc.ClientConn), nil
+		return pconn, nil
 	}
 
 	return clnt.createGrpcConn(!clnt.clientPolicy.RequiresAuthentication())
@@ -309,6 +309,7 @@ func (clnt *ProxyClient) createGrpcConn(noInterceptor bool) (*grpc.ClientConn, E
 // Close closes all Grpcclient connections to database server nodes.
 func (clnt *ProxyClient) Close() {
 	clnt.active.Set(false)
+	clnt.grpcConnPool.cleanup()
 	if clnt.authInterceptor != nil {
 		clnt.authInterceptor.close()
 	}
@@ -1410,3 +1411,93 @@ func (clnt *ProxyClient) getUsableInfoPolicy(policy *InfoPolicy) *InfoPolicy {
 //-------------------------------------------------------
 // Utility Functions
 //-------------------------------------------------------
+
+// grpcConnectionHeap is a non-blocking LIFO heap.
+// If the heap is empty, nil is returned.
+// if the heap is full, offer will return false
+type grpcConnectionHeap struct {
+	head, tail uint32
+	data       []*grpc.ClientConn
+	size       uint32
+	full       bool
+	mutex      sync.Mutex
+}
+
+// newGrpcConnectionHeap creates a new heap with initial size.
+func newGrpcConnectionHeap(size int) *grpcConnectionHeap {
+	if size <= 0 {
+		panic("Heap size cannot be less than 1")
+	}
+
+	return &grpcConnectionHeap{
+		full: false,
+		data: make([]*grpc.ClientConn, uint32(size)),
+		size: uint32(size),
+	}
+}
+
+func (h *grpcConnectionHeap) cleanup() {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	for i := range h.data {
+		if h.data[i] != nil {
+			h.data[i].Close()
+		}
+
+		h.data[i] = nil
+	}
+
+	// make sure offer and poll both fail
+	h.data = nil
+	h.full = true
+	h.head = 0
+	h.tail = 0
+}
+
+// Put adds an item to the heap unless the heap is full.
+// In case the heap is full, the item will not be added to the heap
+// and false will be returned
+func (h *grpcConnectionHeap) Put(conn *grpc.ClientConn) bool {
+	h.mutex.Lock()
+
+	// make sure heap is not full or cleaned up
+	if h.full || len(h.data) == 0 {
+		h.mutex.Unlock()
+		return false
+	}
+
+	h.head = (h.head + 1) % h.size
+	h.full = (h.head == h.tail)
+	h.data[h.head] = conn
+	h.mutex.Unlock()
+	return true
+}
+
+// Poll removes and returns an item from the heap.
+// If the heap is empty, nil will be returned.
+func (h *grpcConnectionHeap) Get() (res *grpc.ClientConn) {
+	h.mutex.Lock()
+
+	// the heap has been cleaned up
+	if len(h.data) == 0 {
+		h.mutex.Unlock()
+		return nil
+	}
+
+	// if heap is not empty
+	if (h.tail != h.head) || h.full {
+		res = h.data[h.head]
+		h.data[h.head] = nil
+
+		h.full = false
+		if h.head == 0 {
+			h.head = h.size - 1
+		} else {
+			h.head--
+		}
+	}
+
+	h.mutex.Unlock()
+	return res
+}

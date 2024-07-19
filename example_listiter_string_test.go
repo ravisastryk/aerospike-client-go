@@ -53,7 +53,7 @@ func ExampleListIter_string() {
 	// }
 
 	var v as.Value = as.NewValue(myListString([]string{"a", "b", "c"}))
-	key, err := as.NewKey("test", "test", 1)
+	key, err := as.NewKey(*namespace, "test", 1)
 	if err != nil {
 		log.Fatal(err)
 	}

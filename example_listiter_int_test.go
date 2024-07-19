@@ -54,7 +54,7 @@ func ExampleListIter_int() {
 	// }
 
 	var v as.Value = as.NewValue(myListInt([]int{1, 2, 3}))
-	key, err := as.NewKey("test", "test", 1)
+	key, err := as.NewKey(*namespace, "test", 1)
 	if err != nil {
 		log.Fatal(err)
 	}
