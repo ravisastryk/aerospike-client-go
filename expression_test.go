@@ -508,9 +508,14 @@ var _ = gg.Describe("Expression Filters", func() {
 		var _ = gg.Context("Record Ops", func() {
 
 			gg.It("ExpRecordSize must work", func() {
-				if serverIsOlderThan("7") {
-					return
+				if *dbaas {
+					gg.Skip("Not supported in DBAAS environment")
 				}
+
+				if serverIsOlderThan("7") {
+					gg.Skip("Not supported servers before v7")
+				}
+
 				// storage-engine could be memory for which deviceSize() returns zero.
 				// This just tests that the expression was sent correctly
 				// because all device sizes are effectively allowed.
