@@ -1,4 +1,4 @@
-//go:build !as_performance
+//go:build as_proxy
 
 // Copyright 2014-2022 Aerospike, Inc.
 //
@@ -17,25 +17,26 @@
 package aerospike_test
 
 import (
+	as "github.com/aerospike/aerospike-client-go/v7"
+
 	gg "github.com/onsi/ginkgo/v2"
+	gm "github.com/onsi/gomega"
 )
 
 // ALL tests are isolated by SetName and Key, which are 50 random characters
-var _ = gg.Describe("Key Test Reflection", func() {
+var _ = gg.Describe("Aerospike Proxy Client", func() {
 
-	// gg.Context("Digests should be the same", func() {
+	gg.Describe("Info operations on proxy client", func() {
+		gg.BeforeEach(func() {
+			if !*proxy {
+				gg.Skip("Only supported in grpc environment")
+			}
+		})
 
-	// 	gg.It("for Arrays", func() {
-
-	// 		// The following two cases should be in exact order
-	// 		key, _ := as.NewKey("namespace", "set", []int{1, 2, 3})
-	// 		gm.Expect(hex.EncodeToString(key.Digest())).To(gm.Equal("a8b63a8208ebebb49d027d51899121fd0d03d2f7"))
-
-	// 		keyInterfaceArrayOfTheSameValues, _ := as.NewKey("namespace", "set", []interface{}{1, 2, 3})
-	// 		gm.Expect(hex.EncodeToString(keyInterfaceArrayOfTheSameValues.Digest())).To(gm.Equal(hex.EncodeToString(key.Digest())))
-
-	// 	})
-
-	// })
+		gg.It("must successfully call info command", func() {
+			_, err := client.(*as.ProxyClient).RequestInfo(nil)
+			gm.Expect(err).ToNot(gm.HaveOccurred())
+		})
+	})
 
 })

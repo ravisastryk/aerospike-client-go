@@ -61,7 +61,7 @@ func ExampleMapIter() {
 
 	now := time.Unix(123123123, 0)
 	var v as.Value = as.NewValue(myMapStringTime(map[string]time.Time{"now": now}))
-	key, err := as.NewKey("test", "test", 1)
+	key, err := as.NewKey(*namespace, "test", 1)
 	if err != nil {
 		log.Fatal(err)
 	}
