@@ -89,6 +89,11 @@ func grpcClientFinalizer(f *ProxyClient) {
 // If the policy is nil, the default relevant policy will be used.
 // Pass "dns:///<address>:<port>" (note the 3 slashes) for dns load balancing,
 // automatically supported internally by grpc-go.
+// The connection pool after connecting to the database is initially empty,
+// and connections are established on a per need basis, which can be slow and
+// time out some initial commands.
+// It is recommended to call the client.WarmUp() method right after connecting to the database
+// to fill up the connection pool to the required service level.
 func NewProxyClientWithPolicyAndHost(policy *ClientPolicy, host *Host, dialOptions ...grpc.DialOption) (*ProxyClient, Error) {
 	if policy == nil {
 		policy = NewClientPolicy()

@@ -72,12 +72,22 @@ func clientFinalizer(f *Client) {
 //-------------------------------------------------------
 
 // NewClient generates a new Client instance.
+// The connection pool after connecting to the database is initially empty,
+// and connections are established on a per need basis, which can be slow and
+// time out some initial commands.
+// It is recommended to call the client.WarmUp() method right after connecting to the database
+// to fill up the connection pool to the required service level.
 func NewClient(hostname string, port int) (*Client, Error) {
 	return NewClientWithPolicyAndHost(NewClientPolicy(), NewHost(hostname, port))
 }
 
 // NewClientWithPolicy generates a new Client using the specified ClientPolicy.
 // If the policy is nil, the default relevant policy will be used.
+// The connection pool after connecting to the database is initially empty,
+// and connections are established on a per need basis, which can be slow and
+// time out some initial commands.
+// It is recommended to call the client.WarmUp() method right after connecting to the database
+// to fill up the connection pool to the required service level.
 func NewClientWithPolicy(policy *ClientPolicy, hostname string, port int) (*Client, Error) {
 	return NewClientWithPolicyAndHost(policy, NewHost(hostname, port))
 }
@@ -85,6 +95,11 @@ func NewClientWithPolicy(policy *ClientPolicy, hostname string, port int) (*Clie
 // NewClientWithPolicyAndHost generates a new Client with the specified ClientPolicy and
 // sets up the cluster using the provided hosts.
 // If the policy is nil, the default relevant policy will be used.
+// The connection pool after connecting to the database is initially empty,
+// and connections are established on a per need basis, which can be slow and
+// time out some initial commands.
+// It is recommended to call the client.WarmUp() method right after connecting to the database
+// to fill up the connection pool to the required service level.
 func NewClientWithPolicyAndHost(policy *ClientPolicy, hosts ...*Host) (*Client, Error) {
 	if policy == nil {
 		policy = NewClientPolicy()
