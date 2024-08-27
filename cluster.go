@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	iatomic "github.com/aerospike/aerospike-client-go/v7/internal/atomic"
+	"github.com/aerospike/aerospike-client-go/v7/internal/seq"
 	"github.com/aerospike/aerospike-client-go/v7/logger"
 	"github.com/aerospike/aerospike-client-go/v7/types"
 )
@@ -260,139 +261,93 @@ func (clstr *Cluster) tend() Error {
 
 	peers := newPeers(len(nodes)+16, 16)
 
-	for _, node := range nodes {
-		// Clear node reference counts.
-		node.referenceCount.Set(0)
-		node.partitionChanged.Set(false)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(nodes))
-	for _, node := range nodes {
-		go func(node *Node) {
-			defer wg.Done()
-			if err := node.Refresh(peers); err != nil {
-				logger.Logger.Debug("Error occurred while refreshing node: %s", node.String())
-			}
-		}(node)
-	}
-	wg.Wait()
+	seq.ParDo(nodes, func(node *Node) {
+		if err := node.Refresh(peers); err != nil {
+			logger.Logger.Debug("Error occurred while refreshing node: %s", node.String())
+		}
+	})
 
 	// Refresh peers when necessary.
 	if peers.genChanged.Get() || len(peers.peers()) != nodeCountBeforeTend {
 		// Refresh peers for all nodes that responded the first time even if only one node's peers changed.
 		peers.refreshCount.Set(0)
 
-		wg.Add(len(nodes))
-		for _, node := range nodes {
-			go func(node *Node) {
-				defer wg.Done()
-				node.refreshPeers(peers)
-			}(node)
-		}
-		wg.Wait()
+		seq.ParDo(nodes, func(node *Node) {
+			node.refreshPeers(peers)
+		})
 	}
 
-	var partMap partitionMap
-
-	// Use the following function to allocate memory for the partitionMap on demand.
-	// This will prevent the allocation when the cluster is stable, and make tend a bit faster.
-	pmlock := new(sync.Mutex)
-	setPartitionMap := func(l *sync.Mutex) {
-		l.Lock()
-		defer l.Unlock()
-		if partMap == nil {
-			partMap = clstr.getPartitions().clone()
-		}
-	}
+	var partMap iatomic.Guard[partitionMap]
 
 	// find the first host that connects
-	for _, _peer := range peers.peers() {
+	seq.ParDo(peers.peers(), func(_peer *peer) {
 		if clstr.peerExists(peers, _peer.nodeName) {
 			// Node already exists. Do not even try to connect to hosts.
-			continue
+			return
 		}
 
-		wg.Add(1)
-		go func(__peer *peer) {
-			defer wg.Done()
-			for _, host := range __peer.hosts {
-				// attempt connection to the host
-				nv := nodeValidator{seedOnlyCluster: clstr.clientPolicy.SeedOnlyCluster}
-				if err := nv.validateNode(clstr, host); err != nil {
-					logger.Logger.Warn("Add node `%s` failed: `%s`", host, err)
-					continue
-				}
-
-				// Must look for new node name in the unlikely event that node names do not agree.
-				if __peer.nodeName != nv.name {
-					logger.Logger.Warn("Peer node `%s` is different than actual node `%s` for host `%s`", __peer.nodeName, nv.name, host)
-				}
-
-				if clstr.peerExists(peers, nv.name) {
-					// Node already exists. Do not even try to connect to hosts.
-					break
-				}
-
-				// Create new node.
-				node := clstr.createNode(&nv)
-				peers.addNode(nv.name, node)
-				setPartitionMap(pmlock)
-				node.refreshPartitions(peers, partMap, true)
-				break
+		seq.Do(_peer.hosts, func(host *Host) error {
+			// attempt connection to the host
+			nv := nodeValidator{seedOnlyCluster: clstr.clientPolicy.SeedOnlyCluster}
+			if err := nv.validateNode(clstr, host); err != nil {
+				logger.Logger.Warn("Add node `%s` failed: `%s`", host, err)
+				return nil
 			}
-		}(_peer)
-	}
+
+			// Must look for new node name in the unlikely event that node names do not agree.
+			if _peer.nodeName != nv.name {
+				logger.Logger.Warn("Peer node `%s` is different than actual node `%s` for host `%s`", _peer.nodeName, nv.name, host)
+			}
+
+			if clstr.peerExists(peers, nv.name) {
+				// Node already exists. Do not even try to connect to hosts.
+				return seq.Break
+			}
+
+			// Create new node.
+			node := clstr.createNode(&nv)
+			peers.addNode(nv.name, node)
+			partMap.InitDoVal(clstr.getPartitions().clone, func(partMap partitionMap) {
+				node.refreshPartitions(peers, partMap, true)
+			})
+			return seq.Break
+		})
+	})
 
 	// Refresh partition map when necessary.
-	wg.Add(len(nodes))
-	for _, node := range nodes {
-		go func(node *Node) {
-			defer wg.Done()
-			if node.partitionChanged.Get() {
-				setPartitionMap(pmlock)
+	seq.ParDo(nodes, func(node *Node) {
+		if node.partitionChanged.Get() {
+			partMap.InitDoVal(clstr.getPartitions().clone, func(partMap partitionMap) {
 				node.refreshPartitions(peers, partMap, false)
-			}
-		}(node)
-	}
-
-	// This waits for the both steps above
-	wg.Wait()
+			})
+		}
+	})
 
 	if peers.genChanged.Get() {
 		// Handle nodes changes determined from refreshes.
 		removeList := clstr.findNodesToRemove(peers.refreshCount.Get())
 
 		// Remove nodes in a batch.
-		if len(removeList) > 0 {
-			for _, n := range removeList {
-				logger.Logger.Debug("The following nodes will be removed: %s", n)
-			}
-			clstr.removeNodes(removeList)
+		for i := range removeList {
+			logger.Logger.Debug("The following nodes will be removed: %s", removeList[i])
 		}
-
+		clstr.removeNodes(removeList)
 		clstr.aggregateNodeStats(removeList)
 	}
 
 	// Add nodes in a batch.
-	if len(peers.nodes()) > 0 {
-		clstr.addNodes(peers.nodes())
-	}
+	clstr.addNodes(peers.nodes())
 
 	// add to the number of successful tends
 	clstr.tendCount++
 
 	// update all partitions in one go
-	updatePartitionMap := false
-	for _, node := range clstr.GetNodes() {
-		if node.partitionChanged.Get() {
-			updatePartitionMap = true
-			break
-		}
-	}
+	updatePartitionMap := seq.Any(clstr.GetNodes(), func(node *Node) bool {
+		return node.partitionChanged.Get()
+	})
 
 	if updatePartitionMap {
-		clstr.setPartitions(partMap)
+		clstr.setPartitions(*partMap.Release())
 	}
 
 	if err := clstr.getPartitions().validate(); err != nil {
@@ -731,6 +686,10 @@ func (clstr *Cluster) updateClusterFeatures() {
 }
 
 func (clstr *Cluster) addNodes(nodesToAdd map[string]*Node) {
+	if len(nodesToAdd) == 0 {
+		return
+	}
+
 	// update features for all nodes
 	defer clstr.updateClusterFeatures()
 
@@ -766,6 +725,10 @@ func (clstr *Cluster) addNodes(nodesToAdd map[string]*Node) {
 }
 
 func (clstr *Cluster) removeNodes(nodesToRemove []*Node) {
+	if len(nodesToRemove) == 0 {
+		return
+	}
+
 	// update features for all nodes
 	defer clstr.updateClusterFeatures()
 

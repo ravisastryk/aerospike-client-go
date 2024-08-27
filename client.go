@@ -1386,13 +1386,6 @@ func (clnt *Client) Truncate(policy *InfoPolicy, namespace, set string, beforeLa
 		return err
 	}
 
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
-
-	if err = node.initTendConn(policy.Timeout); err != nil {
-		return err
-	}
-
 	var strCmd bytes.Buffer
 	if len(set) > 0 {
 		strCmd.WriteString("truncate:namespace=")
@@ -1408,12 +1401,7 @@ func (clnt *Client) Truncate(policy *InfoPolicy, namespace, set string, beforeLa
 		strCmd.WriteString(strconv.FormatInt(beforeLastUpdate.UnixNano(), 10))
 	}
 
-	responseMap, err := node.tendConn.RequestInfo(strCmd.String())
-	if err != nil {
-		node.tendConn.Close()
-		return err
-	}
-
+	responseMap, err := node.RequestInfo(policy, strCmd.String())
 	response := responseMap[strCmd.String()]
 	if strings.EqualFold(response, "OK") {
 		return nil
@@ -1441,15 +1429,13 @@ func (clnt *Client) CreateUser(policy *AdminPolicy, user string, password string
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.createUser(conn, policy, user, hash, roles)
+	})
 
-	command := NewAdminCommand(nil)
-	return command.createUser(node.tendConn, policy, user, hash, roles)
+	return err
 }
 
 // DropUser removes a user from the cluster.
@@ -1461,15 +1447,12 @@ func (clnt *Client) DropUser(policy *AdminPolicy, user string) Error {
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.dropUser(node.tendConn, policy, user)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.dropUser(conn, policy, user)
+	})
+	return err
 }
 
 // ChangePassword changes a user's password. Clear-text password will be hashed using bcrypt before sending to server.
@@ -1490,30 +1473,24 @@ func (clnt *Client) ChangePassword(policy *AdminPolicy, user string, password st
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+
+		if user == clnt.cluster.user {
+			// Change own password.
+			err = command.changePassword(conn, policy, user, clnt.cluster.Password(), hash)
+		} else {
+			// Change other user's password by user admin.
+			err = command.setPassword(conn, policy, user, hash)
+		}
+	})
+
+	if err == nil {
+		clnt.cluster.changePassword(user, password, hash)
 	}
 
-	command := NewAdminCommand(nil)
-
-	if user == clnt.cluster.user {
-		// Change own password.
-		if err := command.changePassword(node.tendConn, policy, user, clnt.cluster.Password(), hash); err != nil {
-			return err
-		}
-	} else {
-		// Change other user's password by user admin.
-		if err := command.setPassword(node.tendConn, policy, user, hash); err != nil {
-			return err
-		}
-	}
-
-	clnt.cluster.changePassword(user, password, hash)
-
-	return nil
+	return err
 }
 
 // GrantRoles adds roles to user's list of roles.
@@ -1525,15 +1502,12 @@ func (clnt *Client) GrantRoles(policy *AdminPolicy, user string, roles []string)
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.grantRoles(node.tendConn, policy, user, roles)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.grantRoles(conn, policy, user, roles)
+	})
+	return err
 }
 
 // RevokeRoles removes roles from user's list of roles.
@@ -1545,19 +1519,17 @@ func (clnt *Client) RevokeRoles(policy *AdminPolicy, user string, roles []string
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.revokeRoles(conn, policy, user, roles)
+	})
 
-	command := NewAdminCommand(nil)
-	return command.revokeRoles(node.tendConn, policy, user, roles)
+	return err
 }
 
 // QueryUser retrieves roles for a given user.
-func (clnt *Client) QueryUser(policy *AdminPolicy, user string) (*UserRoles, Error) {
+func (clnt *Client) QueryUser(policy *AdminPolicy, user string) (res *UserRoles, err Error) {
 	policy = clnt.getUsableAdminPolicy(policy)
 
 	// prepare the node.tendConn
@@ -1565,19 +1537,16 @@ func (clnt *Client) QueryUser(policy *AdminPolicy, user string) (*UserRoles, Err
 	if err != nil {
 		return nil, err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return nil, err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.QueryUser(node.tendConn, policy, user)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		res, err = command.QueryUser(conn, policy, user)
+	})
+	return res, err
 }
 
 // QueryUsers retrieves all users and their roles.
-func (clnt *Client) QueryUsers(policy *AdminPolicy) ([]*UserRoles, Error) {
+func (clnt *Client) QueryUsers(policy *AdminPolicy) (res []*UserRoles, err Error) {
 	policy = clnt.getUsableAdminPolicy(policy)
 
 	// prepare the node.tendConn
@@ -1585,19 +1554,16 @@ func (clnt *Client) QueryUsers(policy *AdminPolicy) ([]*UserRoles, Error) {
 	if err != nil {
 		return nil, err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return nil, err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.QueryUsers(node.tendConn, policy)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		res, err = command.QueryUsers(conn, policy)
+	})
+	return res, err
 }
 
 // QueryRole retrieves privileges for a given role.
-func (clnt *Client) QueryRole(policy *AdminPolicy, role string) (*Role, Error) {
+func (clnt *Client) QueryRole(policy *AdminPolicy, role string) (res *Role, err Error) {
 	policy = clnt.getUsableAdminPolicy(policy)
 
 	// prepare the node.tendConn
@@ -1605,19 +1571,16 @@ func (clnt *Client) QueryRole(policy *AdminPolicy, role string) (*Role, Error) {
 	if err != nil {
 		return nil, err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return nil, err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.QueryRole(node.tendConn, policy, role)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		res, err = command.QueryRole(conn, policy, role)
+	})
+	return res, err
 }
 
 // QueryRoles retrieves all roles and their privileges.
-func (clnt *Client) QueryRoles(policy *AdminPolicy) ([]*Role, Error) {
+func (clnt *Client) QueryRoles(policy *AdminPolicy) (res []*Role, err Error) {
 	policy = clnt.getUsableAdminPolicy(policy)
 
 	// prepare the node.tendConn
@@ -1625,15 +1588,12 @@ func (clnt *Client) QueryRoles(policy *AdminPolicy) ([]*Role, Error) {
 	if err != nil {
 		return nil, err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return nil, err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.QueryRoles(node.tendConn, policy)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		res, err = command.QueryRoles(conn, policy)
+	})
+	return res, err
 }
 
 // CreateRole creates a user-defined role.
@@ -1647,15 +1607,12 @@ func (clnt *Client) CreateRole(policy *AdminPolicy, roleName string, privileges 
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.createRole(node.tendConn, policy, roleName, privileges, whitelist, readQuota, writeQuota)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.createRole(conn, policy, roleName, privileges, whitelist, readQuota, writeQuota)
+	})
+	return err
 }
 
 // DropRole removes a user-defined role.
@@ -1667,15 +1624,12 @@ func (clnt *Client) DropRole(policy *AdminPolicy, roleName string) Error {
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.dropRole(node.tendConn, policy, roleName)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.dropRole(conn, policy, roleName)
+	})
+	return err
 }
 
 // GrantPrivileges grant privileges to a user-defined role.
@@ -1687,15 +1641,12 @@ func (clnt *Client) GrantPrivileges(policy *AdminPolicy, roleName string, privil
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.grantPrivileges(node.tendConn, policy, roleName, privileges)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.grantPrivileges(conn, policy, roleName, privileges)
+	})
+	return err
 }
 
 // RevokePrivileges revokes privileges from a user-defined role.
@@ -1707,15 +1658,12 @@ func (clnt *Client) RevokePrivileges(policy *AdminPolicy, roleName string, privi
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.revokePrivileges(node.tendConn, policy, roleName, privileges)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.revokePrivileges(conn, policy, roleName, privileges)
+	})
+	return err
 }
 
 // SetWhitelist sets IP address whitelist for a role. If whitelist is nil or empty, it removes existing whitelist from role.
@@ -1727,15 +1675,12 @@ func (clnt *Client) SetWhitelist(policy *AdminPolicy, roleName string, whitelist
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.setWhitelist(node.tendConn, policy, roleName, whitelist)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.setWhitelist(conn, policy, roleName, whitelist)
+	})
+	return err
 }
 
 // SetQuotas sets maximum reads/writes per second limits for a role.  If a quota is zero, the limit is removed.
@@ -1749,15 +1694,12 @@ func (clnt *Client) SetQuotas(policy *AdminPolicy, roleName string, readQuota, w
 	if err != nil {
 		return err
 	}
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
 
-	if err := node.initTendConn(time.Second); err != nil {
-		return err
-	}
-
-	command := NewAdminCommand(nil)
-	return command.setQuotas(node.tendConn, policy, roleName, readQuota, writeQuota)
+	node.usingTendConn(policy.Timeout, func(conn *Connection) {
+		command := NewAdminCommand(nil)
+		err = command.setQuotas(conn, policy, roleName, readQuota, writeQuota)
+	})
+	return err
 }
 
 //-------------------------------------------------------
@@ -1845,20 +1787,8 @@ func (clnt *Client) sendInfoCommand(timeout time.Duration, command string) (map[
 		return nil, err
 	}
 
-	node.tendConnLock.Lock()
-	defer node.tendConnLock.Unlock()
-
-	if err = node.initTendConn(timeout); err != nil {
-		return nil, err
-	}
-
-	results, err := node.tendConn.RequestInfo(command)
-	if err != nil {
-		node.tendConn.Close()
-		return nil, err
-	}
-
-	return results, nil
+	policy := InfoPolicy{Timeout: timeout}
+	return node.RequestInfo(&policy, command)
 }
 
 //-------------------------------------------------------
