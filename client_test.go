@@ -63,9 +63,9 @@ var _ = gg.Describe("Aerospike", func() {
 
 	var actualClusterName string
 
-	gg.Describe("Client IndexErrorParser", func() {
+	gg.Describe("Client InfoErrorParser", func() {
 
-		gg.It("must parse IndexError response strings", func() {
+		gg.It("must parse InfoError response strings", func() {
 			type t struct {
 				r    string
 				code types.ResultCode
@@ -73,7 +73,7 @@ var _ = gg.Describe("Aerospike", func() {
 			}
 
 			responses := []t{
-				{"invalid", types.PARSE_ERROR, "invalid"},
+				{"invalid", types.SERVER_ERROR, "invalid"},
 				{"FAIL", types.SERVER_ERROR, "FAIL"},
 				{"FAiL", types.SERVER_ERROR, "FAiL"},
 				{"Error", types.SERVER_ERROR, "Error"},
@@ -83,10 +83,12 @@ var _ = gg.Describe("Aerospike", func() {
 				{"ERROR:200", types.INDEX_FOUND, "Index already exists"},
 				{"FAIL:201", types.INDEX_NOTFOUND, "Index not found"},
 				{"FAIL:201:some message from the server", types.INDEX_NOTFOUND, "some message from the server"},
+				{"FAIL:some message from the server", types.SERVER_ERROR, "some message from the server"},
+				{"error:some message from the server", types.SERVER_ERROR, "some message from the server"},
 			}
 
 			for _, r := range responses {
-				err := as.ParseIndexErrorCode(r.r)
+				err := as.ParseInfoErrorCode(r.r)
 				gm.Expect(err).To(gm.HaveOccurred())
 				gm.Expect(err.(*as.AerospikeError).Msg()).To(gm.Equal(r.err))
 				gm.Expect(err.Matches(r.code)).To(gm.BeTrue())

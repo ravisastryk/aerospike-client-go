@@ -861,23 +861,31 @@ func (clnt *Client) RegisterUDF(policy *WritePolicy, udfBody []byte, serverPath 
 	}
 
 	response := responseMap[strCmd.String()]
+	if strings.EqualFold(response, "ok") {
+		return NewRegisterTask(clnt.cluster, serverPath), nil
+	}
+
+	err = parseInfoErrorCode(response)
+
 	res := make(map[string]string)
-	vals := strings.Split(response, ";")
+	vals := strings.Split("error="+err.Error(), ";")
 	for _, pair := range vals {
 		t := strings.SplitN(pair, "=", 2)
 		if len(t) == 2 {
-			res[t[0]] = t[1]
+			res[strings.ToLower(t[0])] = t[1]
 		} else if len(t) == 1 {
-			res[t[0]] = ""
+			res[strings.ToLower(t[0])] = ""
 		}
 	}
 
 	if _, exists := res["error"]; exists {
 		msg, _ := base64.StdEncoding.DecodeString(res["message"])
-		return nil, newError(types.COMMAND_REJECTED, fmt.Sprintf("Registration failed: %s\nFile: %s\nLine: %s\nMessage: %s",
+		return nil, newError(err.resultCode(), fmt.Sprintf("Registration failed: %s\nFile: %s\nLine: %s\nMessage: %s",
 			res["error"], res["file"], res["line"], msg))
 	}
-	return NewRegisterTask(clnt.cluster, serverPath), nil
+
+	// if message was not parsable
+	return nil, parseInfoErrorCode(response)
 }
 
 // RemoveUDF removes a package containing user defined functions in the server.
@@ -903,10 +911,10 @@ func (clnt *Client) RemoveUDF(policy *WritePolicy, udfName string) (*RemoveTask,
 	}
 
 	response := responseMap[strCmd.String()]
-	if response == "ok" {
+	if strings.EqualFold(response, "ok") {
 		return NewRemoveTask(clnt.cluster, udfName), nil
 	}
-	return nil, newError(types.SERVER_ERROR, response)
+	return nil, parseInfoErrorCode(response)
 }
 
 // ListUDF lists all packages containing user defined functions in the server.
@@ -1134,34 +1142,32 @@ func (clnt *Client) SetXDRFilter(policy *InfoPolicy, datacenter string, namespac
 		return nil
 	}
 
-	return parseIndexErrorCode(response)
+	return parseInfoErrorCode(response)
 }
 
-var indexErrRegexp = regexp.MustCompile(`(?i)(fail|error)(:[0-9]+)?(:.+)?`)
+var infoErrRegexp = regexp.MustCompile(`(?i)(fail|error)((:|=)(?P<code>[0-9]+))?((:|=)(?P<msg>.+))?`)
 
-func parseIndexErrorCode(response string) Error {
+func parseInfoErrorCode(response string) Error {
+	match := infoErrRegexp.FindStringSubmatch(response)
+
 	var code = types.SERVER_ERROR
 	var message = response
 
-	match := indexErrRegexp.FindStringSubmatch(response)
-
-	// invalid response
-	if len(match) != 4 {
-		return newError(types.PARSE_ERROR, response)
-	}
-
-	// error code
-	if len(match[2]) > 0 {
-		i, err := strconv.ParseInt(string(match[2][1:]), 10, 64)
-		if err == nil {
-			code = types.ResultCode(i)
-			message = types.ResultCodeToString(code)
+	if len(match) > 0 {
+		for i, name := range infoErrRegexp.SubexpNames() {
+			if i != 0 && name != "" && len(match[i]) > 0 {
+				switch name {
+				case "code":
+					i, err := strconv.ParseInt(match[i], 10, 64)
+					if err == nil {
+						code = types.ResultCode(i)
+						message = types.ResultCodeToString(code)
+					}
+				case "msg":
+					message = match[i]
+				}
+			}
 		}
-	}
-
-	// message
-	if len(match[3]) > 0 {
-		message = string(match[3][1:])
 	}
 
 	return newError(code, message)
@@ -1325,7 +1331,7 @@ func (clnt *Client) CreateComplexIndex(
 		return NewIndexTask(clnt.cluster, namespace, indexName), nil
 	}
 
-	return nil, parseIndexErrorCode(response)
+	return nil, parseInfoErrorCode(response)
 }
 
 // DropIndex deletes a secondary index. It will block until index is dropped on all nodes.
@@ -1363,7 +1369,7 @@ func (clnt *Client) DropIndex(
 		return <-task.OnComplete()
 	}
 
-	err = parseIndexErrorCode(response)
+	err = parseInfoErrorCode(response)
 	if err.Matches(types.INDEX_NOTFOUND) {
 		// Index did not previously exist. Return without error.
 		return nil
@@ -1381,11 +1387,6 @@ func (clnt *Client) DropIndex(
 func (clnt *Client) Truncate(policy *InfoPolicy, namespace, set string, beforeLastUpdate *time.Time) Error {
 	policy = clnt.getUsableInfoPolicy(policy)
 
-	node, err := clnt.cluster.GetRandomNode()
-	if err != nil {
-		return err
-	}
-
 	var strCmd bytes.Buffer
 	if len(set) > 0 {
 		strCmd.WriteString("truncate:namespace=")
@@ -1401,13 +1402,17 @@ func (clnt *Client) Truncate(policy *InfoPolicy, namespace, set string, beforeLa
 		strCmd.WriteString(strconv.FormatInt(beforeLastUpdate.UnixNano(), 10))
 	}
 
-	responseMap, err := node.RequestInfo(policy, strCmd.String())
+	responseMap, err := clnt.sendInfoCommand(policy.Timeout, strCmd.String())
+	if err != nil {
+		return err
+	}
+
 	response := responseMap[strCmd.String()]
 	if strings.EqualFold(response, "OK") {
 		return nil
 	}
 
-	return newError(types.SERVER_ERROR, "Truncate failed: "+response)
+	return parseInfoErrorCode(response)
 }
 
 //-------------------------------------------------------
