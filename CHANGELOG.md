@@ -1,5 +1,20 @@
 # Change History
 
+## September 13 2024: v7.7.0
+
+  Minor improvement release.
+
+- **Improvements**
+  - [CLIENT-3112] Correctly handle new error messages/error codes returned by AS 7.2.
+  - [CLIENT-3102] Add "XDR key busy" error code 32.
+  - [CLIENT-3119] Use Generics For a General Code Clean Up
+    Uses several new generic containers to simplify concurrent access in the client.
+    Uses a Guard as a monitor for the tend connection. This encapsulates synchronized tend connection management using said Guard.
+  - Add documentation about client.WarmUp to the client initialization API.
+
+- **Fixes**
+  - [CLIENT-3082] BatchGet with empty Keys raises gRPC EOF error.
+
 ## August 12 2024: v7.6.1
 
   Minor improvement release.
