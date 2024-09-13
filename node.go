@@ -20,7 +20,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -46,11 +45,11 @@ type Node struct {
 	cluster     *Cluster
 	name        string
 	host        *Host
-	aliases     atomic.Value //[]*Host
+	aliases     iatomic.TypedVal[[]*Host]
 	stats       nodeStats
-	sessionInfo atomic.Value //*sessionInfo
+	sessionInfo iatomic.TypedVal[*sessionInfo]
 
-	racks atomic.Value //map[string]int
+	racks iatomic.TypedVal[map[string]int]
 
 	// tendConn reserves a connection for tend so that it won't have to
 	// wait in queue for connections, since that will cause starvation
@@ -100,9 +99,9 @@ func newNode(cluster *Cluster, nv *nodeValidator) *Node {
 		rebalanceGeneration: *iatomic.NewInt(-1),
 	}
 
-	newNode.aliases.Store(nv.aliases)
-	newNode.sessionInfo.Store(nv.sessionInfo)
-	newNode.racks.Store(map[string]int{})
+	newNode.aliases.Set(nv.aliases)
+	newNode.sessionInfo.Set(nv.sessionInfo)
+	newNode.racks.Set(make(map[string]int))
 
 	// this will reset to zero on first aggregation on the cluster,
 	// therefore will only be counted once.
@@ -201,7 +200,7 @@ func (nd *Node) refreshSessionToken() (err Error) {
 		return nil
 	}
 
-	st := nd.sessionInfo.Load().(*sessionInfo)
+	st := nd.sessionInfo.Get()
 
 	// Consider when the next tend will be in this calculation. If the next tend will be too late,
 	// refresh the sessionInfo now.
@@ -217,7 +216,7 @@ func (nd *Node) refreshSessionToken() (err Error) {
 			// Socket not authenticated. Do not put back into pool.
 			conn.Close()
 		} else {
-			nd.sessionInfo.Store(command.sessionInfo())
+			nd.sessionInfo.Set(command.sessionInfo())
 		}
 	})
 
@@ -282,7 +281,7 @@ func (nd *Node) updateRackInfo(infoMap map[string]string) Error {
 		}
 	}
 
-	nd.racks.Store(racks)
+	nd.racks.Set(racks)
 
 	return nil
 }
@@ -506,7 +505,7 @@ func (nd *Node) newConnection(overrideThreshold bool) (*Connection, Error) {
 	}
 	conn.node = nd
 
-	sessionInfo := nd.sessionInfo.Load().(*sessionInfo)
+	sessionInfo := nd.sessionInfo.Get()
 	// need to authenticate
 	if err = conn.login(&nd.cluster.clientPolicy, nd.cluster.Password(), sessionInfo); err != nil {
 		// increment node errors if authentication hit a network error
@@ -620,12 +619,12 @@ func (nd *Node) GetName() string {
 
 // GetAliases returns node aliases.
 func (nd *Node) GetAliases() []*Host {
-	return nd.aliases.Load().([]*Host)
+	return nd.aliases.Get()
 }
 
 // Sets node aliases
 func (nd *Node) setAliases(aliases []*Host) {
-	nd.aliases.Store(aliases)
+	nd.aliases.Set(aliases)
 }
 
 // AddAlias adds an alias for the node
@@ -830,13 +829,13 @@ func (nd *Node) RequestStats(policy *InfoPolicy) (map[string]string, Error) {
 // unsuccessful authentication with token
 func (nd *Node) resetSessionInfo() {
 	si := &sessionInfo{}
-	nd.sessionInfo.Store(si)
+	nd.sessionInfo.Set(si)
 }
 
 // sessionToken returns the session token for the node.
 // It will return nil if the session has expired.
 func (nd *Node) sessionToken() []byte {
-	si := nd.sessionInfo.Load().(*sessionInfo)
+	si := nd.sessionInfo.Get()
 	if !si.isValid() {
 		return nil
 	}
@@ -846,7 +845,7 @@ func (nd *Node) sessionToken() []byte {
 
 // Rack returns the rack number for the namespace.
 func (nd *Node) Rack(namespace string) (int, Error) {
-	racks := nd.racks.Load().(map[string]int)
+	racks := nd.racks.Get()
 	v, exists := racks[namespace]
 
 	if exists {
@@ -858,7 +857,7 @@ func (nd *Node) Rack(namespace string) (int, Error) {
 
 // Rack returns the rack number for the namespace.
 func (nd *Node) hasRack(namespace string, rack int) bool {
-	racks := nd.racks.Load().(map[string]int)
+	racks := nd.racks.Get()
 	v, exists := racks[namespace]
 
 	if !exists {

@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
@@ -44,7 +43,7 @@ type ProxyClient struct {
 	grpcHost     *Host
 	dialOptions  []grpc.DialOption
 
-	authToken       atomic.Value
+	authToken       iatomic.TypedVal[string]
 	authInterceptor *authInterceptor
 
 	active iatomic.Bool
@@ -260,11 +259,11 @@ func (clnt *ProxyClient) SetDefaultInfoPolicy(policy *InfoPolicy) {
 //-------------------------------------------------------
 
 func (clnt *ProxyClient) token() string {
-	return clnt.authToken.Load().(string)
+	return clnt.authToken.Get()
 }
 
 func (clnt *ProxyClient) setAuthToken(token string) {
-	clnt.authToken.Store(token)
+	clnt.authToken.Set(token)
 }
 
 func (clnt *ProxyClient) grpcConn() (*grpc.ClientConn, Error) {

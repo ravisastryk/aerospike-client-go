@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	iatomic "github.com/aerospike/aerospike-client-go/v7/internal/atomic"
+	sm "github.com/aerospike/aerospike-client-go/v7/internal/atomic/map"
 	"github.com/aerospike/aerospike-client-go/v7/internal/seq"
 	"github.com/aerospike/aerospike-client-go/v7/logger"
 	"github.com/aerospike/aerospike-client-go/v7/types"
@@ -34,27 +35,27 @@ import (
 // them.
 type Cluster struct {
 	// Initial host nodes specified by user.
-	seeds iatomic.SyncVal //[]*Host
+	seeds iatomic.SyncVal[[]*Host]
 
 	// All aliases for all nodes in cluster.
 	// Only accessed within cluster tend goroutine.
-	aliases iatomic.SyncVal //map[Host]*Node
+	aliases sm.Map[Host, *Node]
 
 	// Map of active nodes in cluster.
 	// Only accessed within cluster tend goroutine.
-	nodesMap iatomic.SyncVal //map[string]*Node
+	nodesMap sm.Map[string, *Node]
 
 	// Active nodes in cluster.
-	nodes     iatomic.SyncVal       //[]*Node
+	nodes     iatomic.SyncVal[[]*Node]
 	stats     map[string]*nodeStats //host => stats
 	statsLock sync.Mutex
 
 	// enable performance metrics
-	metricsEnabled atomic.Bool  // bool
-	metricsPolicy  atomic.Value // *MetricsPolicy
+	metricsEnabled atomic.Bool // bool
+	metricsPolicy  iatomic.TypedVal[*MetricsPolicy]
 
 	// Hints for best node for a partition
-	partitionWriteMap atomic.Value //partitionMap
+	partitionWriteMap iatomic.TypedVal[partitionMap] //partitionMap
 
 	clientPolicy        ClientPolicy
 	infoPolicy          InfoPolicy
@@ -77,7 +78,7 @@ type Cluster struct {
 	user string
 
 	// Password in hashed format in bytes.
-	password iatomic.SyncVal // []byte
+	password iatomic.SyncVal[[]byte]
 }
 
 // NewCluster generates a Cluster instance.
@@ -119,17 +120,17 @@ func NewCluster(policy *ClientPolicy, hosts []*Host) (*Cluster, Error) {
 		tendChannel:  make(chan struct{}),
 
 		seeds:    *iatomic.NewSyncVal(hosts),
-		aliases:  *iatomic.NewSyncVal(make(map[Host]*Node)),
-		nodesMap: *iatomic.NewSyncVal(make(map[string]*Node)),
+		aliases:  *sm.New[Host, *Node](16),
+		nodesMap: *sm.New[string, *Node](16),
 		nodes:    *iatomic.NewSyncVal([]*Node{}),
 		stats:    map[string]*nodeStats{},
 
-		password: *iatomic.NewSyncVal(nil),
+		password: *iatomic.NewSyncVal[[]byte](nil),
 
 		supportsPartitionQuery: *iatomic.NewBool(false),
 	}
 
-	newCluster.partitionWriteMap.Store(make(partitionMap))
+	newCluster.partitionWriteMap.Set(make(partitionMap))
 
 	// setup auth info for cluster
 	if policy.RequiresAuthentication() {
@@ -225,8 +226,7 @@ Loop:
 // AddSeeds adds new hosts to the cluster.
 // They will be added to the cluster on next tend call.
 func (clstr *Cluster) AddSeeds(hosts []*Host) {
-	clstr.seeds.Update(func(val interface{}) (interface{}, error) {
-		seeds := val.([]*Host)
+	clstr.seeds.Update(func(seeds []*Host) ([]*Host, error) {
 		seeds = append(seeds, hosts...)
 		return seeds, nil
 	})
@@ -484,12 +484,7 @@ func (clstr *Cluster) waitTillStabilized() Error {
 }
 
 func (clstr *Cluster) findAlias(alias *Host) *Node {
-	res, _ := clstr.aliases.GetSyncedVia(func(val interface{}) (interface{}, error) {
-		aliases := val.(map[Host]*Node)
-		return aliases[*alias], nil
-	})
-
-	return res.(*Node)
+	return clstr.aliases.Get(*alias)
 }
 
 func (clstr *Cluster) setPartitions(partMap partitionMap) {
@@ -497,11 +492,11 @@ func (clstr *Cluster) setPartitions(partMap partitionMap) {
 		logger.Logger.Error("Partition map error: %s.", err.Error())
 	}
 
-	clstr.partitionWriteMap.Store(partMap)
+	clstr.partitionWriteMap.Set(partMap)
 }
 
 func (clstr *Cluster) getPartitions() partitionMap {
-	return clstr.partitionWriteMap.Load().(partitionMap)
+	return clstr.partitionWriteMap.Get()
 }
 
 // discoverSeeds will lookup the seed hosts and convert seed hosts
@@ -526,8 +521,7 @@ func discoverSeedIPs(seeds []*Host) (res []*Host) {
 // Adds seeds to the cluster
 func (clstr *Cluster) seedNodes() (newSeedsFound bool, errChain Error) {
 	// Must copy array reference for copy on write semantics to work.
-	seedArrayIfc, _ := clstr.seeds.GetSyncedVia(func(val interface{}) (interface{}, error) {
-		seeds := val.([]*Host)
+	seedArrayCopy, _ := clstr.seeds.GetSyncedVia(func(seeds []*Host) ([]*Host, error) {
 		seedsCopy := make([]*Host, len(seeds))
 		copy(seedsCopy, seeds)
 
@@ -535,7 +529,7 @@ func (clstr *Cluster) seedNodes() (newSeedsFound bool, errChain Error) {
 	})
 
 	// discover seed IPs from DNS or Load Balancers
-	seedArray := discoverSeedIPs(seedArrayIfc.([]*Host))
+	seedArray := discoverSeedIPs(seedArrayCopy)
 
 	successChan := make(chan struct{}, len(seedArray))
 	errChan := make(chan Error, len(seedArray))
@@ -603,11 +597,7 @@ func (clstr *Cluster) findNodeName(list []*Node, name string) bool {
 
 func (clstr *Cluster) addAlias(host *Host, node *Node) {
 	if host != nil && node != nil {
-		clstr.aliases.Update(func(val interface{}) (interface{}, error) {
-			aliases := val.(map[Host]*Node)
-			aliases[*host] = node
-			return aliases, nil
-		})
+		clstr.aliases.Set(*host, node)
 	}
 }
 
@@ -693,8 +683,7 @@ func (clstr *Cluster) addNodes(nodesToAdd map[string]*Node) {
 	// update features for all nodes
 	defer clstr.updateClusterFeatures()
 
-	clstr.nodes.Update(func(val interface{}) (interface{}, error) {
-		nodes := val.([]*Node)
+	clstr.nodes.Update(func(nodes []*Node) ([]*Node, error) {
 		if clstr.clientPolicy.SeedOnlyCluster && clstr.GetSeedCount() == len(nodes) {
 			// Don't add new nodes.
 			return nodes, nil
@@ -717,8 +706,8 @@ func (clstr *Cluster) addNodes(nodesToAdd map[string]*Node) {
 			}
 		}
 
-		clstr.nodesMap.Set(nodesMap)
-		clstr.aliases.Set(nodesAliases)
+		clstr.nodesMap.Replace(nodesMap)
+		clstr.aliases.Replace(nodesAliases)
 
 		return nodes, nil
 	})
@@ -739,26 +728,13 @@ func (clstr *Cluster) removeNodes(nodesToRemove []*Node) {
 	for _, node := range nodesToRemove {
 		// Remove node's aliases from cluster alias set.
 		// Aliases are only used in tend goroutine, so synchronization is not necessary.
-		clstr.aliases.Update(func(val interface{}) (interface{}, error) {
-			aliases := val.(map[Host]*Node)
-			for _, alias := range node.GetAliases() {
-				delete(aliases, *alias)
-			}
-			return aliases, nil
-		})
-
-		clstr.nodesMap.Update(func(val interface{}) (interface{}, error) {
-			nodesMap := val.(map[string]*Node)
-			delete(nodesMap, node.name)
-			return nodesMap, nil
-		})
-
+		clstr.aliases.DeleteAllDeref(node.GetAliases()...)
+		clstr.nodesMap.Delete(node.name)
 		node.Close()
 	}
 
 	// Remove all nodes at once to avoid copying entire array multiple times.
-	clstr.nodes.Update(func(val interface{}) (interface{}, error) {
-		nodes := val.([]*Node)
+	clstr.nodes.Update(func(nodes []*Node) ([]*Node, error) {
 		nlist := make([]*Node, 0, len(nodes))
 		nlist = append(nlist, nodes...)
 		for i, n := range nlist {
@@ -814,23 +790,21 @@ func (clstr *Cluster) GetRandomNode() (*Node, Error) {
 // GetNodes returns a list of all nodes in the cluster
 func (clstr *Cluster) GetNodes() []*Node {
 	// Must copy array reference for copy on write semantics to work.
-	return clstr.nodes.Get().([]*Node)
+	return clstr.nodes.Get()
 }
 
 // GetSeedCount is the count of seed nodes
 func (clstr *Cluster) GetSeedCount() int {
-	res, _ := clstr.seeds.GetSyncedVia(func(val interface{}) (interface{}, error) {
-		seeds := val.([]*Host)
+	res, _ := iatomic.MapSyncValue(&clstr.seeds, func(seeds []*Host) (int, error) {
 		return len(seeds), nil
 	})
 
-	return res.(int)
+	return res
 }
 
 // GetSeeds returns a list of all seed nodes in the cluster
 func (clstr *Cluster) GetSeeds() []Host {
-	res, _ := clstr.seeds.GetSyncedVia(func(val interface{}) (interface{}, error) {
-		seeds := val.([]*Host)
+	res, _ := iatomic.MapSyncValue(&clstr.seeds, func(seeds []*Host) ([]Host, error) {
 		res := make([]Host, 0, len(seeds))
 		for _, seed := range seeds {
 			res = append(res, *seed)
@@ -839,22 +813,12 @@ func (clstr *Cluster) GetSeeds() []Host {
 		return res, nil
 	})
 
-	return res.([]Host)
+	return res
 }
 
 // GetAliases returns a list of all node aliases in the cluster
 func (clstr *Cluster) GetAliases() map[Host]*Node {
-	res, _ := clstr.aliases.GetSyncedVia(func(val interface{}) (interface{}, error) {
-		aliases := val.(map[Host]*Node)
-		res := make(map[Host]*Node, len(aliases))
-		for h, n := range aliases {
-			res[h] = n
-		}
-
-		return res, nil
-	})
-
-	return res.(map[Host]*Node)
+	return clstr.aliases.Clone()
 }
 
 // GetNodeByName finds a node by name and returns an
@@ -962,7 +926,7 @@ func (clstr *Cluster) WaitUntillMigrationIsFinished(timeout time.Duration) Error
 func (clstr *Cluster) Password() (res []byte) {
 	pass := clstr.password.Get()
 	if pass != nil {
-		return pass.([]byte)
+		return pass
 	}
 	return nil
 }
@@ -1008,11 +972,7 @@ func (clstr *Cluster) WarmUp(count int) (int, Error) {
 
 // MetricsEnabled returns true if metrics are enabled for the cluster.
 func (clstr *Cluster) MetricsPolicy() *MetricsPolicy {
-	res := clstr.metricsPolicy.Load()
-	if res != nil {
-		return res.(*MetricsPolicy)
-	}
-	return nil
+	return clstr.metricsPolicy.Get()
 }
 
 // MetricsEnabled returns true if metrics are enabled for the cluster.
@@ -1028,7 +988,7 @@ func (clstr *Cluster) EnableMetrics(policy *MetricsPolicy) {
 		policy = DefaultMetricsPolicy()
 	}
 
-	clstr.metricsPolicy.Store(policy)
+	clstr.metricsPolicy.Set(policy)
 	clstr.metricsEnabled.Store(true)
 
 	clstr.statsLock.Lock()
