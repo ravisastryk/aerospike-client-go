@@ -605,6 +605,11 @@ func (clnt *ProxyClient) GetHeader(policy *BasePolicy, key *Key) (*Record, Error
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) BatchGet(policy *BatchPolicy, keys []*Key, binNames ...string) ([]*Record, Error) {
 	policy = clnt.getUsableBatchPolicy(policy)
+
+	if len(keys) == 0 {
+		return []*Record{}, nil
+	}
+
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	batchRecords := make([]*BatchRecord, 0, len(keys))
 	for _, key := range keys {
@@ -633,6 +638,11 @@ func (clnt *ProxyClient) BatchGet(policy *BatchPolicy, keys []*Key, binNames ...
 // If a batch request to a node fails, the entire batch is cancelled.
 func (clnt *ProxyClient) BatchGetOperate(policy *BatchPolicy, keys []*Key, ops ...*Operation) ([]*Record, Error) {
 	policy = clnt.getUsableBatchPolicy(policy)
+
+	if len(keys) == 0 {
+		return []*Record{}, nil
+	}
+
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	batchRecords := make([]*BatchRecord, 0, len(keys))
 	for _, key := range keys {
@@ -682,6 +692,11 @@ func (clnt *ProxyClient) BatchGetComplex(policy *BatchPolicy, records []*BatchRe
 // If the policy is nil, the default relevant policy will be used.
 func (clnt *ProxyClient) BatchGetHeader(policy *BatchPolicy, keys []*Key) ([]*Record, Error) {
 	policy = clnt.getUsableBatchPolicy(policy)
+
+	if len(keys) == 0 {
+		return []*Record{}, nil
+	}
+
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	for _, key := range keys {
 		batchRecordsIfc = append(batchRecordsIfc, NewBatchReadHeader(clnt.DefaultBatchReadPolicy, key))
@@ -706,6 +721,11 @@ func (clnt *ProxyClient) BatchGetHeader(policy *BatchPolicy, keys []*Key) ([]*Re
 // Requires server version 6.0+
 func (clnt *ProxyClient) BatchDelete(policy *BatchPolicy, deletePolicy *BatchDeletePolicy, keys []*Key) ([]*BatchRecord, Error) {
 	policy = clnt.getUsableBatchPolicy(policy)
+
+	if len(keys) == 0 {
+		return []*BatchRecord{}, nil
+	}
+
 	deletePolicy = clnt.getUsableBatchDeletePolicy(deletePolicy)
 
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
@@ -755,6 +775,10 @@ func (clnt *ProxyClient) BatchOperate(policy *BatchPolicy, records []BatchRecord
 //
 // Requires server version 6.0+
 func (clnt *ProxyClient) BatchExecute(policy *BatchPolicy, udfPolicy *BatchUDFPolicy, keys []*Key, packageName string, functionName string, args ...Value) ([]*BatchRecord, Error) {
+	if len(keys) == 0 {
+		return []*BatchRecord{}, nil
+	}
+
 	batchRecordsIfc := make([]BatchRecordIfc, 0, len(keys))
 	batchRecords := make([]*BatchRecord, 0, len(keys))
 	for _, key := range keys {
