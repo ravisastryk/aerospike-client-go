@@ -65,6 +65,11 @@ function getRecordKeyValue(rec)
 end
 `
 
+const invalidUdfBody = `function testFunc1(rec, div)
+	asdf
+   returned ret                             -- Return the Return value and/or status
+end`
+
 // ALL tests are isolated by SetName and Key, which are 50 random characters
 var _ = gg.Describe("UDF/Query tests", func() {
 
@@ -94,6 +99,15 @@ var _ = gg.Describe("UDF/Query tests", func() {
 
 		// wait until UDF is created
 		gm.Expect(<-regTask.OnComplete()).NotTo(gm.HaveOccurred())
+	})
+
+	gg.It("must parse invalid UDF error", func() {
+		_, err := client.RegisterUDF(wpolicy, []byte(invalidUdfBody), "invalid_udf1.lua", as.LUA)
+		gm.Expect(err).To(gm.HaveOccurred())
+		gm.Expect(err.Error()).To(gm.HaveSuffix(`compile_error
+File: invalid_udf1.lua
+Line: 3
+Message: syntax error near 'returned'`))
 	})
 
 	gg.It("must run a UDF on a single record", func() {

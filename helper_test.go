@@ -14,8 +14,8 @@
 
 package aerospike
 
-func ParseIndexErrorCode(response string) Error {
-	return parseIndexErrorCode(response)
+func ParseInfoErrorCode(response string) Error {
+	return parseInfoErrorCode(response)
 }
 
 func (e *AerospikeError) Msg() string {
